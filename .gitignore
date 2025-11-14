@@ -1,0 +1,105 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+out/
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Docker
+docker-compose.override.yml
+
+# Ephemeris data
+backend/app/services/chart/ephemeris/data/*.se1
+
+# Reports
+backend/reports/generated/*
+!backend/reports/generated/.gitkeep
+
+# Uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Cache
+.cache/
+*.cache
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.crt
+
+# Testing
+.pytest_cache/
+coverage/
+*.cover
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md

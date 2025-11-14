@@ -1,0 +1,171 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: astor-postgres
+    environment:
+      POSTGRES_USER: astor_user
+      POSTGRES_PASSWORD: astor_pass
+      POSTGRES_DB: astor_ai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U astor_user -d astor_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - astor-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: astor-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - astor-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: astor-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: astor
+      RABBITMQ_DEFAULT_PASS: astor_queue
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - astor-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: astor-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql://astor_user:astor_pass@postgres:5432/astor_ai
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://astor:astor_queue@rabbitmq:5672/
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      ENVIRONMENT: development
+    ports:
+      - "0.0.0.0:8000:8000"
+    volumes:
+      - ./backend:/app
+      - ephemeris_data:/app/ephemeris
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - astor-network
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: astor-celery-worker
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://astor_user:astor_pass@postgres:5432/astor_ai
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://astor:astor_queue@rabbitmq:5672/
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+    volumes:
+      - ./backend:/app
+      - ephemeris_data:/app/ephemeris
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - backend
+    networks:
+      - astor-network
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: astor-celery-beat
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://astor_user:astor_pass@postgres:5432/astor_ai
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://astor:astor_queue@rabbitmq:5672/
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+      - rabbitmq
+      - backend
+    networks:
+      - astor-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: astor-frontend
+    command: npm run dev
+    environment:
+      NEXT_PUBLIC_API_URL: http://192.168.11.134:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - astor-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: astor-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./infra/docker/nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - astor-network
+
+networks:
+  astor-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  ephemeris_data:

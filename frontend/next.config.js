@@ -1,0 +1,21 @@
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  swcMinify: true,
+  env: {
+    API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://192.168.11.134:8000',
+  },
+  images: {
+    domains: ['localhost', '192.168.11.134'],
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://192.168.11.134:8000'}/api/:path*`,
+      },
+    ];
+  },
+}
+
+module.exports = nextConfig
