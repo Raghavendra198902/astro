@@ -31,16 +31,60 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
     
-    # TODO: Initialize components
-    # - Load ephemeris data
-    # - Warm up AI models
-    # - Initialize cache
+    # Initialize Redis connection
+    try:
+        from app.core.redis_client import redis_client
+        await redis_client.ping()
+        logger.info("✓ Redis connection established")
+    except Exception as e:
+        logger.error(f"✗ Redis connection failed: {e}")
+        raise
+    
+    # Initialize prediction cache
+    try:
+        from app.services.predictions.cache import PredictionCache
+        _ = PredictionCache(redis_client=redis_client, ttl=3600)
+        logger.info("✓ Prediction cache initialized")
+    except Exception as e:
+        logger.warning(f"Cache initialization failed: {e}")
+    
+    # Verify database connection
+    try:
+        from sqlalchemy import text
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        logger.info("✓ Database connection verified")
+    except Exception as e:
+        logger.error(f"✗ Database connection failed: {e}")
+        raise
+    
+    # Check ephemeris data directory
+    import os
+    ephemeris_path = os.path.join(os.path.dirname(__file__), "..", "ephemeris")
+    if os.path.exists(ephemeris_path) and os.listdir(ephemeris_path):
+        logger.info(f"✓ Ephemeris data found at {ephemeris_path}")
+    else:
+        logger.warning(f"⚠ Ephemeris data directory empty or missing: {ephemeris_path}")
+        logger.warning("  Charts may not work without Swiss Ephemeris files")
+    
+    logger.info("=== Astor AI started successfully ===")
     
     yield
     
     # Shutdown
     logger.info("Shutting down Astor AI application...")
+    
+    # Close Redis connection
+    try:
+        await redis_client.close()
+        logger.info("✓ Redis connection closed")
+    except Exception as e:
+        logger.error(f"Error closing Redis: {e}")
+    
+    # Close database connection
     await engine.dispose()
+    logger.info("✓ Database connection closed")
+    logger.info("=== Astor AI shutdown complete ===")
 
 
 # Create FastAPI application
@@ -607,16 +651,55 @@ async def health_check():
 
 @app.get("/readyz", tags=["Health"])
 async def readiness_check():
-    """Readiness check endpoint"""
-    # TODO: Check database, redis, etc.
-    return {
-        "status": "ready",
-        "checks": {
-            "database": "ok",
-            "redis": "ok",
-            "rabbitmq": "ok",
+    """Readiness check endpoint - checks all critical dependencies"""
+    from sqlalchemy import text
+    from app.core.redis_client import redis_client
+    import aio_pika
+    
+    checks = {}
+    all_healthy = True
+    
+    # Check database
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {str(e)}"
+        all_healthy = False
+        logger.error(f"Database health check failed: {e}")
+    
+    # Check Redis
+    try:
+        await redis_client.ping()
+        checks["redis"] = "ok"
+    except Exception as e:
+        checks["redis"] = f"error: {str(e)}"
+        all_healthy = False
+        logger.error(f"Redis health check failed: {e}")
+    
+    # Check RabbitMQ
+    try:
+        connection = await aio_pika.connect_robust(
+            settings.RABBITMQ_URL,
+            timeout=5
+        )
+        await connection.close()
+        checks["rabbitmq"] = "ok"
+    except Exception as e:
+        checks["rabbitmq"] = f"error: {str(e)}"
+        all_healthy = False
+        logger.error(f"RabbitMQ health check failed: {e}")
+    
+    status_code = status.HTTP_200_OK if all_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
+    
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if all_healthy else "not_ready",
+            "checks": checks
         }
-    }
+    )
 
 
 # Root endpoint

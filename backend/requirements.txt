@@ -44,7 +44,7 @@ unidecode==1.3.8
 
 # Vision AI
 opencv-python-headless==4.9.0.80
-mediapipe==0.10.9
+mediapipe==0.10.21
 numpy==1.26.3
 pillow==10.2.0
 

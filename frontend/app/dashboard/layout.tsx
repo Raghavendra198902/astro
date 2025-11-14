@@ -311,6 +311,7 @@ const DashboardContent = ({ children }: { children: React.ReactNode }) => {
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="lg:hidden p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+                aria-label="Toggle mobile menu"
               >
                 <Menu className="w-5 h-5" />
               </button>
@@ -318,6 +319,7 @@ const DashboardContent = ({ children }: { children: React.ReactNode }) => {
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 className="hidden lg:block p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"
+                aria-label="Toggle sidebar"
               >
                 <Menu className="w-5 h-5" />
               </button>
@@ -393,7 +395,10 @@ const DashboardContent = ({ children }: { children: React.ReactNode }) => {
               </div>
 
               {/* Notifications - Premium Badge */}
-              <button className="relative p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md">
+              <button 
+                className="relative p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md"
+                aria-label="View notifications"
+              >
                 <Bell className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900" />
               </button>

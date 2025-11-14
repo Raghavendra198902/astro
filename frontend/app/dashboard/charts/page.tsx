@@ -119,13 +119,16 @@ export default function ChartsPage() {
           
           {/* Filter Dropdown */}
           <div className="relative">
+            <label htmlFor="chart-filter" className="sr-only">Filter charts by type</label>
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none">
               <Filter className="w-5 h-5" strokeWidth={2} />
             </div>
             <select
+              id="chart-filter"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className="pl-12 pr-10 py-3.5 bg-gray-50 dark:bg-gray-700/50 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:border-violet-500 dark:focus:border-violet-400 focus:ring-4 focus:ring-violet-100 dark:focus:ring-violet-900/20 outline-none transition-all appearance-none cursor-pointer min-w-[200px] text-gray-900 dark:text-white font-medium"
+              aria-label="Filter charts by type"
             >
               <option value="all">All Charts</option>
               <option value="vedic">Vedic Charts</option>
