@@ -7,8 +7,59 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from enum import Enum
 import logging
+import hashlib
+import json
+from pydantic import BaseModel, Field, field_validator, ValidationError
 
 logger = logging.getLogger(__name__)
+
+
+class PredictionValidationError(Exception):
+    """Custom exception for prediction validation errors"""
+    pass
+
+
+class PredictionInput(BaseModel):
+    """Validated input for life events prediction"""
+    birth_date: datetime = Field(..., description="Date of birth")
+    birth_time: str = Field(..., pattern=r"^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$", description="Time of birth (HH:MM)")
+    latitude: float = Field(..., ge=-90, le=90, description="Birth location latitude")
+    longitude: float = Field(..., ge=-180, le=180, description="Birth location longitude")
+    full_name: str = Field(..., min_length=2, max_length=200, description="Full name")
+    current_age: int = Field(..., ge=1, le=150, description="Current age")
+    prediction_years: int = Field(default=10, ge=1, le=50, description="Years to predict")
+    
+    @field_validator("birth_date")
+    @classmethod
+    def validate_birth_date(cls, v):
+        """Validate birth date is not in future and reasonable"""
+        if v > datetime.now():
+            raise ValueError("Birth date cannot be in the future")
+        if v.year < 1900:
+            raise ValueError("Birth date must be after 1900")
+        return v
+    
+    @field_validator("full_name")
+    @classmethod
+    def validate_name(cls, v):
+        """Validate name contains valid characters"""
+        if not v.strip():
+            raise ValueError("Name cannot be empty")
+        return v.strip()
+    
+    def generate_cache_key(self) -> str:
+        """Generate unique cache key for this prediction request"""
+        key_data = {
+            "birth_date": self.birth_date.isoformat(),
+            "birth_time": self.birth_time,
+            "latitude": round(self.latitude, 4),
+            "longitude": round(self.longitude, 4),
+            "full_name": self.full_name.lower(),
+            "current_age": self.current_age,
+            "prediction_years": self.prediction_years
+        }
+        key_string = json.dumps(key_data, sort_keys=True)
+        return f"prediction:{hashlib.sha256(key_string.encode()).hexdigest()}"
 
 
 class EventCategory(str, Enum):
@@ -47,12 +98,194 @@ class LifeEventsEngine:
     for past and future life event detection
     """
     
-    def __init__(self):
+    def __init__(self, cache_service=None):
         self.accuracy_weights = {
             "astrology": 0.50,  # Vedic charts, Dasha, Transit
             "numerology": 0.30,  # Life cycles, Personal years
             "ai_patterns": 0.20  # ML pattern recognition
         }
+        self.cache_service = cache_service
+        self.cache_enabled = cache_service is not None
+        self.cache_ttl = 3600  # 1 hour
+    
+    async def validate_and_predict_cached(
+        self,
+        birth_date: datetime,
+        birth_time: str,
+        latitude: float,
+        longitude: float,
+        full_name: str,
+        current_age: int,
+        prediction_years: int = 10,
+        use_cache: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Validate inputs, check cache, and perform prediction
+        
+        Args:
+            birth_date: Date of birth
+            birth_time: Time of birth (HH:MM)
+            latitude: Birth location latitude (-90 to 90)
+            longitude: Birth location longitude (-180 to 180)
+            full_name: Full name for numerology (2-200 chars)
+            current_age: Current age (1-150)
+            prediction_years: Years to predict (1-50)
+            use_cache: Whether to use cache (default: True)
+            
+        Returns:
+            Complete life events prediction data or error response
+        """
+        try:
+            # Validate inputs
+            validated_input = PredictionInput(
+                birth_date=birth_date,
+                birth_time=birth_time,
+                latitude=latitude,
+                longitude=longitude,
+                full_name=full_name,
+                current_age=current_age,
+                prediction_years=prediction_years
+            )
+            
+            # Check cache if enabled
+            if use_cache and self.cache_enabled:
+                cache_key = validated_input.generate_cache_key()
+                cached_result = await self.cache_service.get(cache_key)
+                
+                if cached_result:
+                    logger.info(f"Returning cached prediction for {validated_input.full_name}")
+                    cached_result["from_cache"] = True
+                    return cached_result
+            
+            # Perform prediction
+            logger.info(
+                f"Computing prediction for {validated_input.full_name}, "
+                f"age {validated_input.current_age}, span {validated_input.prediction_years}y"
+            )
+            
+            result = self.predict_life_events(
+                validated_input.birth_date,
+                validated_input.birth_time,
+                validated_input.latitude,
+                validated_input.longitude,
+                validated_input.full_name,
+                validated_input.current_age,
+                validated_input.prediction_years
+            )
+            
+            # Cache successful results
+            if use_cache and self.cache_enabled and result.get("success"):
+                cache_key = validated_input.generate_cache_key()
+                await self.cache_service.set(cache_key, result, self.cache_ttl)
+            
+            result["from_cache"] = False
+            return result
+            
+        except ValidationError as e:
+            error_details = []
+            for error in e.errors():
+                field = " -> ".join(str(loc) for loc in error["loc"])
+                message = error["msg"]
+                error_details.append(f"{field}: {message}")
+            
+            error_message = "Input validation failed: " + "; ".join(error_details)
+            logger.error(error_message)
+            
+            return {
+                "success": False,
+                "error": "Validation Error",
+                "details": error_details,
+                "message": "Please check your input parameters and try again"
+            }
+        
+        except Exception as e:
+            logger.error(f"Unexpected error in cached prediction: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": "Internal Error",
+                "message": "An unexpected error occurred. Please try again later."
+            }
+    
+    def validate_and_predict(
+        self,
+        birth_date: datetime,
+        birth_time: str,
+        latitude: float,
+        longitude: float,
+        full_name: str,
+        current_age: int,
+        prediction_years: int = 10
+    ) -> Dict[str, Any]:
+        """
+        Validate inputs and perform prediction with comprehensive error handling
+        
+        Args:
+            birth_date: Date of birth
+            birth_time: Time of birth (HH:MM)
+            latitude: Birth location latitude (-90 to 90)
+            longitude: Birth location longitude (-180 to 180)
+            full_name: Full name for numerology (2-200 chars)
+            current_age: Current age (1-150)
+            prediction_years: Years to predict (1-50)
+            
+        Returns:
+            Complete life events prediction data or error response
+        
+        Raises:
+            PredictionValidationError: If input validation fails
+        """
+        try:
+            # Validate all inputs
+            validated_input = PredictionInput(
+                birth_date=birth_date,
+                birth_time=birth_time,
+                latitude=latitude,
+                longitude=longitude,
+                full_name=full_name,
+                current_age=current_age,
+                prediction_years=prediction_years
+            )
+            
+            logger.info(
+                f"Validated prediction request for {validated_input.full_name}, "
+                f"age {validated_input.current_age}, predicting {validated_input.prediction_years} years"
+            )
+            
+            # Perform prediction with validated inputs
+            return self.predict_life_events(
+                validated_input.birth_date,
+                validated_input.birth_time,
+                validated_input.latitude,
+                validated_input.longitude,
+                validated_input.full_name,
+                validated_input.current_age,
+                validated_input.prediction_years
+            )
+            
+        except ValidationError as e:
+            error_details = []
+            for error in e.errors():
+                field = " -> ".join(str(loc) for loc in error["loc"])
+                message = error["msg"]
+                error_details.append(f"{field}: {message}")
+            
+            error_message = "Input validation failed: " + "; ".join(error_details)
+            logger.error(error_message)
+            
+            return {
+                "success": False,
+                "error": "Validation Error",
+                "details": error_details,
+                "message": "Please check your input parameters and try again"
+            }
+        
+        except Exception as e:
+            logger.error(f"Unexpected error in validation: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": "Internal Error",
+                "message": "An unexpected error occurred. Please try again later."
+            }
     
     def predict_life_events(
         self,
@@ -68,40 +301,52 @@ class LifeEventsEngine:
         Master prediction function combining all engines
         
         Args:
-            birth_date: Date of birth
-            birth_time: Time of birth (HH:MM)
-            latitude: Birth location latitude
-            longitude: Birth location longitude
-            full_name: Full name for numerology
-            current_age: Current age
-            prediction_years: Years to predict into future
+            birth_date: Date of birth (validated)
+            birth_time: Time of birth (HH:MM) (validated)
+            latitude: Birth location latitude (validated)
+            longitude: Birth location longitude (validated)
+            full_name: Full name for numerology (validated)
+            current_age: Current age (validated)
+            prediction_years: Years to predict into future (validated)
             
         Returns:
             Complete life events prediction data
         """
+        request_id = hashlib.md5(f"{birth_date}{birth_time}{current_age}".encode()).hexdigest()[:8]
+        
         try:
+            logger.info(f"[{request_id}] Starting prediction for age {current_age}, span {prediction_years}y")
+            start_time = datetime.now()
+            
             # Get astrology analysis
             astro_data = self._get_astrology_predictions(
                 birth_date, birth_time, latitude, longitude, current_age, prediction_years
             )
+            logger.debug(f"[{request_id}] Astrology analysis completed")
             
             # Get numerology analysis
             numerology_data = self._get_numerology_predictions(
                 birth_date, full_name, current_age, prediction_years
             )
+            logger.debug(f"[{request_id}] Numerology analysis completed")
             
             # Get AI pattern predictions
             ai_patterns = self._get_ai_pattern_predictions(
                 astro_data, numerology_data, current_age
             )
+            logger.debug(f"[{request_id}] AI pattern analysis completed")
             
             # Combine all sources with weighted algorithm
             combined_predictions = self._combine_predictions(
                 astro_data, numerology_data, ai_patterns
             )
             
+            computation_time = (datetime.now() - start_time).total_seconds()
+            logger.info(f"[{request_id}] Prediction completed in {computation_time:.2f}s")
+            
             return {
                 "success": True,
+                "request_id": request_id,
                 "birth_date": birth_date.isoformat(),
                 "current_age": current_age,
                 "prediction_span": f"{current_age} - {current_age + prediction_years} years",
@@ -125,12 +370,21 @@ class LifeEventsEngine:
                     "astrology_weight": self.accuracy_weights["astrology"],
                     "numerology_weight": self.accuracy_weights["numerology"],
                     "ai_patterns_weight": self.accuracy_weights["ai_patterns"]
+                },
+                "metadata": {
+                    "computation_time_seconds": round(computation_time, 2),
+                    "timestamp": datetime.now().isoformat()
                 }
             }
             
         except Exception as e:
-            logger.error(f"Life events prediction failed: {e}")
-            return {"success": False, "error": str(e)}
+            logger.error(f"[{request_id}] Life events prediction failed: {e}", exc_info=True)
+            return {
+                "success": False,
+                "request_id": request_id,
+                "error": "Prediction Error",
+                "message": "Unable to generate predictions. Please verify your birth details and try again."
+            }
     
     def _get_astrology_predictions(
         self,

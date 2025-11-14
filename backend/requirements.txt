@@ -93,3 +93,4 @@ pylint==3.0.3
 # Development
 ipython==8.20.0
 jupyter==1.0.0
+slowapi==0.1.9

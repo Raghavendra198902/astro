@@ -3,13 +3,14 @@ Life Events Prediction API Endpoints
 /api/v1/events/* - Past, Future, Combined, Multi-source predictions
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
 from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field
 import logging
 
 from app.core.security import get_current_user
+from app.core.rate_limiter import limiter, RATE_LIMITS
 from app.models.models import User
 from app.services.predictions.life_events_engine import life_events_engine
 from app.services.predictions.multisource_fusion import multisource_fusion_engine

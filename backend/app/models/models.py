@@ -432,3 +432,49 @@ class ConsultationBooking(Base):
         Index("idx_consultation_bookings_scheduled_start", "scheduled_start"),
         CheckConstraint("status IN ('scheduled', 'in_progress', 'completed', 'cancelled', 'no_show')", name="check_booking_status"),
     )
+
+
+class PredictionHistory(Base):
+    """Prediction history for life events"""
+    __tablename__ = "prediction_history"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    profile_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=True)
+    
+    # Request parameters
+    full_name = Column(String(200), nullable=False)
+    birth_date = Column(DateTime(timezone=True), nullable=False)
+    birth_time = Column(String(10), nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    current_age = Column(Integer, nullable=False)
+    prediction_years = Column(Integer, nullable=False)
+    
+    # Results
+    prediction_data = Column(JSONB, nullable=False)  # Full prediction result
+    past_events_count = Column(Integer, default=0)
+    future_events_count = Column(Integer, default=0)
+    risk_periods_count = Column(Integer, default=0)
+    accuracy_score = Column(Float, nullable=True)
+    
+    # Metadata
+    computation_time_seconds = Column(Float, nullable=True)
+    from_cache = Column(Boolean, default=False)
+    cache_key = Column(String(100), nullable=True)
+    request_id = Column(String(50), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    accessed_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User")
+    profile = relationship("Profile")
+    
+    __table_args__ = (
+        Index("idx_prediction_history_user", "user_id"),
+        Index("idx_prediction_history_profile", "profile_id"),
+        Index("idx_prediction_history_created", "created_at"),
+        Index("idx_prediction_history_cache_key", "cache_key"),
+    )

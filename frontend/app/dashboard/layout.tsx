@@ -188,6 +188,8 @@ const DashboardContent = ({ children }: { children: React.ReactNode }) => {
             <button
               onClick={() => setSidebarOpen(false)}
               className="lg:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              aria-label="Close sidebar"
+              title="Close sidebar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -196,8 +198,12 @@ const DashboardContent = ({ children }: { children: React.ReactNode }) => {
           {/* Quick Actions */}
           {!sidebarCollapsed && (
             <div className="px-4 pt-6 pb-4">
-              <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/40 transition-all transform hover:scale-[1.02]">
-                <Plus className="w-5 h-5" />
+              <button 
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/40 transition-all transform hover:scale-[1.02]"
+                aria-label="Create new chart"
+                title="Create new chart"
+              >
+                <Plus className="w-5 h-5" aria-hidden="true" />
                 <span>{t.generateNewChart}</span>
               </button>
             </div>
