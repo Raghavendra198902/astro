@@ -28,7 +28,7 @@ async def kundali_milan_analysis(
 ):
     """Vedic compatibility using 36 Guna system"""
     # Get both charts
-    stmt = select(Chart).where(Chart.id.in_([request.chart1_id, request.chart2_id]))
+    stmt = select(Chart).where(Chart.id.in_([request.chart_a_id, request.chart_b_id]))
     result = await db.execute(stmt)
     charts = {chart.id: chart for chart in result.scalars().all()}
     
@@ -38,22 +38,15 @@ async def kundali_milan_analysis(
             detail="One or both charts not found"
         )
     
-    chart1 = charts[request.chart1_id]
-    chart2 = charts[request.chart2_id]
-    
-    # Verify ownership
-    if chart1.user_id != current_user.id and chart2.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    chart1 = charts[request.chart_a_id]
+    chart2 = charts[request.chart_b_id]
     
     try:
         # Calculate Guna Milan
         kundali_milan = KundaliMilan()
         guna_result = kundali_milan.calculate_guna_milan(
-            chart1.chart_data,
-            chart2.chart_data
+            chart1.json_payload,
+            chart2.json_payload
         )
         
         # Check Mangal Dosha
@@ -101,7 +94,7 @@ async def western_synastry_analysis(
 ):
     """Western synastry compatibility"""
     # Get both charts
-    stmt = select(Chart).where(Chart.id.in_([request.chart1_id, request.chart2_id]))
+    stmt = select(Chart).where(Chart.id.in_([request.chart_a_id, request.chart_b_id]))
     result = await db.execute(stmt)
     charts = {chart.id: chart for chart in result.scalars().all()}
     
@@ -111,22 +104,15 @@ async def western_synastry_analysis(
             detail="One or both charts not found"
         )
     
-    chart1 = charts[request.chart1_id]
-    chart2 = charts[request.chart2_id]
-    
-    # Verify ownership
-    if chart1.user_id != current_user.id and chart2.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    chart1 = charts[request.chart_a_id]
+    chart2 = charts[request.chart_b_id]
     
     try:
         # Analyze synastry
         synastry = WesternSynastry()
         synastry_result = synastry.analyze_synastry(
-            chart1.chart_data,
-            chart2.chart_data
+            chart1.json_payload,
+            chart2.json_payload
         )
         
         # Calculate composite chart

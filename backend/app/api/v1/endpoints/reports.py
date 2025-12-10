@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import io
+from uuid import UUID
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -20,7 +21,7 @@ report_generator = ReportGenerator()
 
 @router.get("/natal/{chart_id}", response_class=StreamingResponse)
 async def generate_natal_report(
-    chart_id: int,
+    chart_id: UUID,
     theme: str = "classic",
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -28,8 +29,7 @@ async def generate_natal_report(
     """Generate PDF natal chart report"""
     # Get chart
     stmt = select(Chart).where(
-        Chart.id == chart_id,
-        Chart.user_id == current_user.id
+        Chart.id == chart_id
     )
     result = await db.execute(stmt)
     chart = result.scalars().first()
@@ -67,7 +67,7 @@ async def generate_natal_report(
 
 @router.get("/compatibility/{analysis_id}", response_class=StreamingResponse)
 async def generate_compatibility_report(
-    analysis_id: int,
+    analysis_id: UUID,
     theme: str = "classic",
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -130,7 +130,7 @@ async def generate_compatibility_report(
 
 @router.get("/transit/{chart_id}", response_class=StreamingResponse)
 async def generate_transit_report(
-    chart_id: int,
+    chart_id: UUID,
     days: int = 30,
     theme: str = "classic",
     current_user: User = Depends(get_current_user),
@@ -139,8 +139,7 @@ async def generate_transit_report(
     """Generate PDF transit forecast report"""
     # Get chart
     stmt = select(Chart).where(
-        Chart.id == chart_id,
-        Chart.user_id == current_user.id
+        Chart.id == chart_id
     )
     result = await db.execute(stmt)
     chart = result.scalars().first()
