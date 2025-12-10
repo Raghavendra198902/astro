@@ -9,8 +9,10 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import get_current_user, get_password_hash
-from app.models.models import User, Profile
-from app.schemas.schemas import UserResponse, UserUpdate, ProfileResponse
+from app.models.models import User, Profile, TOBAccuracy, ChartSystem
+from app.schemas.schemas import UserResponse, UserUpdate, ProfileResponse, ProfileCreate
+from datetime import datetime
+import pytz
 
 router = APIRouter()
 
@@ -68,6 +70,59 @@ async def list_user_profiles(
     result = await db.execute(stmt)
     profiles = result.scalars().all()
     return profiles
+
+
+@router.post("/profiles", response_model=ProfileResponse, status_code=status.HTTP_201_CREATED)
+async def create_profile(
+    profile_data: ProfileCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new profile for the current user"""
+    # Parse date and time
+    try:
+        date_parts = profile_data.date_of_birth.split('-')
+        time_parts = profile_data.time_of_birth.split(':')
+        
+        year = int(date_parts[0])
+        month = int(date_parts[1])
+        day = int(date_parts[2])
+        hour = int(time_parts[0])
+        minute = int(time_parts[1])
+        second = int(time_parts[2]) if len(time_parts) > 2 else 0
+        
+        # Create datetime in the specified timezone
+        tz = pytz.timezone(profile_data.timezone or 'UTC')
+        local_dt = tz.localize(datetime(year, month, day, hour, minute, second))
+        
+        # Convert to UTC
+        utc_dt = local_dt.astimezone(pytz.UTC)
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid date/time format: {str(e)}"
+        )
+    
+    # Create profile
+    new_profile = Profile(
+        user_id=current_user.id,
+        name=profile_data.name,
+        dob_ts_utc=utc_dt,
+        tob_accuracy=TOBAccuracy[profile_data.tob_accuracy.value.upper()],
+        birthplace_text=profile_data.birthplace,
+        latitude=profile_data.latitude or 0.0,
+        longitude=profile_data.longitude or 0.0,
+        timezone=profile_data.timezone or 'UTC',
+        preferred_system=ChartSystem[profile_data.preferred_system.value.upper()],
+        language=profile_data.language
+    )
+    
+    db.add(new_profile)
+    await db.commit()
+    await db.refresh(new_profile)
+    
+    return new_profile
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

@@ -1,451 +1,585 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import axios from 'axios';
-import { Hand, Upload, Scan, Eye, Heart, Brain, TrendingUp, Users, Star, Plus } from 'lucide-react';
-import { useLanguage } from '@/lib/contexts/language.context';
-import { dashboardTranslations } from '@/lib/translations/dashboard.translations';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { useState, useRef } from 'react';
+import { Hand, Upload, Camera, Heart, Brain, Star, TrendingUp, Users, Zap, Loader2, Target, Award, Compass, Crown, Sparkles } from 'lucide-react';
 
 export default function PalmistryPage() {
-  const { language } = useLanguage();
-  const t = dashboardTranslations[language];
-  const [activeTab, setActiveTab] = useState<'upload' | 'readings'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'analysis'>('upload');
   const [selectedHand, setSelectedHand] = useState<'left' | 'right'>('right');
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [showWebcam, setShowWebcam] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Fetch palm analysis on component mount or when hand changes
-  useEffect(() => {
-    const fetchAnalysis = async () => {
-      setLoading(true);
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/v1/palmistry-test`, {
-          params: { hand: selectedHand, demo: true }
-        });
-        setAnalysis(response.data);
-      } catch (error) {
-        console.error('Error fetching palmistry analysis:', error);
-      } finally {
-        setLoading(false);
-      }
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
     };
+    reader.readAsDataURL(file);
 
-    fetchAnalysis();
-  }, [selectedHand]);
+    await analyzeHand();
+  };
 
-  const readings = [
-    {
-      id: 1,
-      name: 'Palm Reading - Right Hand',
-      date: '2024-11-10',
-      hand: 'Right',
-      lifeLineStrength: 'Strong',
-      heartLineStrength: 'Deep',
+  const startWebcam = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        } 
+      });
+      setStream(mediaStream);
+      setShowWebcam(true);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      console.error('Error accessing webcam:', err);
+      alert('Unable to access webcam. Please check permissions.');
+    }
+  };
+
+  const stopWebcam = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setShowWebcam(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        const imageData = canvas.toDataURL('image/jpeg');
+        setImagePreview(imageData);
+        stopWebcam();
+        analyzeHand();
+      }
+    }
+  };
+
+  const analyzeHand = async () => {
+    try {
+      setLoading(true);
+      setActiveTab('analysis');
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/api/v1/palmistry-test?hand=${selectedHand}&demo=true`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAnalysis(data);
+      } else {
+        alert('Failed to analyze palm');
+      }
+    } catch (err) {
+      console.error('Error analyzing palm:', err);
+      alert('Failed to analyze palm. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handShapeInfo: { [key: string]: { description: string, traits: string[] } } = {
+    'earth': {
+      description: 'Square palm, short fingers - practical and grounded',
+      traits: ['Practical', 'Reliable', 'Hardworking', 'Stable']
     },
-    {
-      id: 2,
-      name: 'Palm Analysis - Left Hand',
-      date: '2024-11-05',
-      hand: 'Left',
-      lifeLineStrength: 'Medium',
-      heartLineStrength: 'Strong',
+    'air': {
+      description: 'Square palm, long fingers - intellectual and communicative',
+      traits: ['Analytical', 'Curious', 'Social', 'Adaptable']
     },
-  ];
+    'water': {
+      description: 'Rectangular palm, long fingers - emotional and intuitive',
+      traits: ['Creative', 'Empathetic', 'Sensitive', 'Artistic']
+    },
+    'fire': {
+      description: 'Rectangular palm, short fingers - passionate and energetic',
+      traits: ['Energetic', 'Spontaneous', 'Confident', 'Bold']
+    }
+  };
 
-  const palmLines = [
-    { line: t.lifeLine, meaning: t.lifeLineMeaning, icon: Heart },
-    { line: t.heartLine, meaning: t.heartLineMeaning, icon: Heart },
-    { line: t.headLine, meaning: t.headLineMeaning, icon: Brain },
-    { line: t.fateLine, meaning: t.fateLineMeaning, icon: TrendingUp },
-    { line: t.marriageLine, meaning: t.marriageLineMeaning, icon: Users },
+  const majorLines = [
+    { name: 'Life Line', description: 'Vitality and life energy', icon: Heart },
+    { name: 'Head Line', description: 'Intellect and thinking style', icon: Brain },
+    { name: 'Heart Line', description: 'Emotions and relationships', icon: Heart },
+    { name: 'Fate Line', description: 'Life path and career', icon: TrendingUp },
   ];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <Hand className="w-8 h-8 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-            {t.palmistry}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-emerald-950/30 to-slate-950 p-4 md:p-6 lg:p-8">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-[500px] h-[500px] bg-green-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-emerald-200 to-green-200 bg-clip-text text-transparent flex items-center justify-center gap-4">
+            <Hand className="w-10 h-10 text-emerald-400" strokeWidth={2} />
+            AI Palm Reading
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">{t.palmistryDescription}</p>
+          <p className="text-slate-400 mt-4 text-lg">Discover your destiny through the ancient art of palmistry</p>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => setActiveTab('upload')}
-          className={`px-6 py-3 font-semibold transition-colors ${
-            activeTab === 'upload'
-              ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          }`}
-        >
-          {t.scanPalm}
-        </button>
-        <button
-          onClick={() => setActiveTab('readings')}
-          className={`px-6 py-3 font-semibold transition-colors ${
-            activeTab === 'readings'
-              ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-          }`}
-        >
-          {t.myReadings}
-        </button>
-      </div>
-
-      {activeTab === 'upload' ? (
-        <>
-          {/* Hand Selection */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 p-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-              <Scan className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-              {t.selectHand}
-            </h2>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
+        {/* Hand Selection */}
+        <div className="max-w-2xl mx-auto bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
+          <h3 className="text-white font-semibold mb-4 text-center">Select Hand to Analyze</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { id: 'left', label: 'Left Hand', desc: 'Potential & Inner Self' },
+              { id: 'right', label: 'Right Hand', desc: 'Reality & Choices' },
+            ].map((hand) => (
               <button
-                onClick={() => setSelectedHand('left')}
-                className={`p-6 rounded-xl border-2 transition-all ${
-                  selectedHand === 'left'
-                    ? 'border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-600'
+                key={hand.id}
+                onClick={() => setSelectedHand(hand.id as any)}
+                className={`p-4 rounded-xl font-semibold transition-all ${
+                  selectedHand === hand.id
+                    ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg shadow-emerald-500/30'
+                    : 'bg-slate-700/30 text-slate-400 hover:text-white hover:bg-slate-700/50'
                 }`}
               >
-                <div className="text-center">
-                  <Hand className="w-16 h-16 mx-auto mb-3 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t.leftHand}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{t.leftHandMeaning}</p>
-                </div>
+                <div className="text-lg">{hand.label}</div>
+                <div className="text-xs mt-1 opacity-80">{hand.desc}</div>
               </button>
-
-              <button
-                onClick={() => setSelectedHand('right')}
-                className={`p-6 rounded-xl border-2 transition-all ${
-                  selectedHand === 'right'
-                    ? 'border-emerald-500 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-900/30'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-emerald-300 dark:hover:border-emerald-600'
-                }`}
-              >
-                <div className="text-center">
-                  <Hand className="w-16 h-16 mx-auto mb-3 text-emerald-600 dark:text-emerald-400 scale-x-[-1]" strokeWidth={2} />
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t.rightHand}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{t.rightHandMeaning}</p>
-                </div>
-              </button>
-            </div>
-
-            {/* Upload Area */}
-            <div className="border-2 border-dashed border-emerald-300 dark:border-emerald-600 rounded-xl p-12 text-center hover:border-emerald-500 dark:hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-all cursor-pointer">
-              <div className="flex flex-col items-center gap-4">
-                <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-                  <Upload className="w-10 h-10 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                    {t.uploadPalmPhoto}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {t.palmPhotoInstructions}
-                  </p>
-                </div>
-                <button className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-105 transition-all">
-                  {t.chooseFile}
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>{t?.tip || 'Tip'}:</strong> {t?.palmPhotoTip || 'For best results, take a clear photo of your palm in good lighting'}
-              </p>
-            </div>
+            ))}
           </div>
+        </div>
 
-          {/* Real Palm Analysis Results */}
-          {loading ? (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-12 text-center">
-              <div className="animate-spin w-16 h-16 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-400">Analyzing your palm...</p>
-            </div>
-          ) : analysis && !analysis.error ? (
-            <div className="space-y-6">
-              {/* Analysis Header */}
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-2xl border-2 border-emerald-200 dark:border-emerald-800 p-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Hand className={`w-8 h-8 text-emerald-600 dark:text-emerald-400 ${analysis.hand === 'Left' ? '' : 'scale-x-[-1]'}`} strokeWidth={2} />
-                    {analysis.hand} Hand Analysis
-                  </h2>
-                  <div className="flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-semibold text-green-700 dark:text-green-300">
-                      Real palmistry analysis
-                    </span>
-                  </div>
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 mb-4">{analysis.hand_meaning}</p>
-                
-                {/* Overall Summary */}
-                {analysis.interpretation?.summary && (
-                  <div className="bg-white dark:bg-gray-800 rounded-xl p-6 mt-4">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">Overall Reading</h3>
-                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{analysis.interpretation.summary}</p>
-                  </div>
-                )}
-              </div>
+        {/* Tab Navigation */}
+        <div className="max-w-2xl mx-auto bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-2">
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { id: 'upload', label: 'Upload Photo', icon: Upload },
+              { id: 'analysis', label: 'Analysis', icon: Sparkles },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  disabled={tab.id === 'analysis' && !analysis}
+                  className={`py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg shadow-emerald-500/30'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
-              {/* Hand Element & Temperament */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-8">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Hand Element & Temperament</h2>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="p-6 bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-900/20 dark:to-blue-900/20 rounded-xl">
-                    <div className="text-sm font-semibold text-sky-700 dark:text-sky-300 mb-2">Element</div>
-                    <div className="text-3xl font-bold text-sky-600 dark:text-sky-400 mb-2 capitalize">{analysis.interpretation?.element}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">{analysis.interpretation?.temperament}</div>
-                  </div>
-                  <div className="p-6 bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20 rounded-xl">
-                    <div className="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-2">Vitality</div>
-                    <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{analysis.interpretation?.vitality}</div>
-                  </div>
-                </div>
-              </div>
+        {/* Upload Tab */}
+        {activeTab === 'upload' && (
+          <div className="max-w-4xl mx-auto space-y-8">
+            {/* Upload Methods */}
+            <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                <Camera className="w-6 h-6 text-emerald-400" />
+                Capture Your Palm
+              </h2>
 
-              {/* Major Palm Lines */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-8">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                  <Heart className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                  Major Palm Lines
-                </h2>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {analysis.features?.lines && Object.entries(analysis.features.lines).map(([key, line]: [string, any]) => (
-                    <div key={key} className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border-2 border-emerald-200 dark:border-emerald-800">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Heart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white capitalize">
-                          {key.replace('_', ' ')}
-                        </h3>
-                      </div>
-                      {line.quality && (
-                        <div className="mb-2">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">Quality: </span>
-                          <span className="font-semibold text-emerald-600 dark:text-emerald-400 capitalize">{line.quality}</span>
-                        </div>
-                      )}
-                      {line.length && (
-                        <div className="mb-2">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">Length: </span>
-                          <span className="font-semibold text-emerald-600 dark:text-emerald-400 capitalize">{line.length}</span>
-                        </div>
-                      )}
-                      {line.strength && (
-                        <div className="mb-2">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">Strength: </span>
-                          <span className="font-semibold text-emerald-600 dark:text-emerald-400 capitalize">{line.strength}</span>
-                        </div>
-                      )}
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">{line.meaning}</p>
+              <div className="grid md:grid-cols-2 gap-6 mb-6">
+                {/* Upload File */}
+                <div 
+                  onClick={() => !showWebcam && fileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer group ${
+                    showWebcam 
+                      ? 'border-slate-600/50 opacity-50 cursor-not-allowed' 
+                      : 'border-emerald-500/50 hover:border-emerald-400 hover:bg-emerald-500/5'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-emerald-500/20 to-green-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Upload className="w-8 h-8 text-emerald-400" strokeWidth={2} />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Finger Analysis */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-8">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                  <Hand className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                  Finger Characteristics
-                </h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {analysis.features?.fingers && Object.entries(analysis.features.fingers).map(([key, finger]: [string, any]) => (
-                    <div key={key} className="p-6 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white capitalize mb-2">{key}</h3>
-                      <div className="mb-2">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Length: </span>
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400 capitalize">{finger.length}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{finger.meaning}</p>
+                    <div>
+                      <p className="text-lg font-semibold text-white mb-1">Upload Photo</p>
+                      <p className="text-xs text-slate-400">JPG, PNG, WEBP</p>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Palm Mounts */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-8">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                  <Star className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                  Palm Mounts
-                </h2>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {analysis.features?.mounts && Object.entries(analysis.features.mounts).map(([key, mount]: [string, any]) => (
-                    <div key={key} className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border-2 border-amber-200 dark:border-amber-800">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white capitalize mb-2">{key}</h3>
-                      <div className="mb-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{mount.location}</span>
-                      </div>
-                      <div className="mb-2">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Prominence: </span>
-                        <span className="font-semibold text-amber-600 dark:text-amber-400 capitalize">{mount.prominence}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{mount.meaning}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Interpretation Details */}
-              {analysis.interpretation && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-8">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Detailed Interpretation</h2>
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {analysis.interpretation.mentality && (
-                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Brain className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                          <h3 className="font-bold text-gray-900 dark:text-white">Mentality</h3>
-                        </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{analysis.interpretation.mentality}</p>
-                      </div>
-                    )}
-                    {analysis.interpretation.emotions && (
-                      <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-xl">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Heart className="w-5 h-5 text-rose-600 dark:text-rose-400" />
-                          <h3 className="font-bold text-gray-900 dark:text-white">Emotions</h3>
-                        </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{analysis.interpretation.emotions}</p>
-                      </div>
-                    )}
-                    {analysis.interpretation.career && (
-                      <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                        <div className="flex items-center gap-2 mb-2">
-                          <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
-                          <h3 className="font-bold text-gray-900 dark:text-white">Career</h3>
-                        </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{analysis.interpretation.career}</p>
-                      </div>
-                    )}
-                    {analysis.interpretation.relationships && (
-                      <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Users className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                          <h3 className="font-bold text-gray-900 dark:text-white">Relationships</h3>
-                        </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{analysis.interpretation.relationships}</p>
-                      </div>
-                    )}
                   </div>
+                </div>
 
-                  {/* Strengths and Challenges */}
-                  <div className="grid md:grid-cols-2 gap-6 mt-6">
-                    {analysis.interpretation.strengths && (
-                      <div>
-                        <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                          <Star className="w-5 h-5 text-yellow-500" />
-                          Strengths
-                        </h3>
-                        <ul className="space-y-2">
-                          {analysis.interpretation.strengths.map((strength: string, idx: number) => (
-                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-                              <span className="text-green-500 mt-1">✓</span>
-                              {strength}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {analysis.interpretation.challenges && (
-                      <div>
-                        <h3 className="font-bold text-gray-900 dark:text-white mb-3">Challenges</h3>
-                        <ul className="space-y-2">
-                          {analysis.interpretation.challenges.map((challenge: string, idx: number) => (
-                            <li key={idx} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-                              <span className="text-amber-500 mt-1">•</span>
-                              {challenge}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                {/* Use Webcam */}
+                <div 
+                  onClick={() => !showWebcam && startWebcam()}
+                  className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer group ${
+                    showWebcam 
+                      ? 'border-green-500/50 bg-green-500/5' 
+                      : 'border-green-500/50 hover:border-green-400 hover:bg-green-500/5'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-green-500/20 to-teal-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Camera className="w-8 h-8 text-green-400" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-white mb-1">
+                        {showWebcam ? 'Webcam Active' : 'Use Webcam'}
+                      </p>
+                      <p className="text-xs text-slate-400">Capture instantly</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
+              {/* Webcam View */}
+              {showWebcam && (
+                <div className="mt-6 p-6 bg-slate-700/30 rounded-2xl border border-slate-600/50">
+                  <div className="relative">
+                    <video 
+                      ref={videoRef}
+                      autoPlay 
+                      playsInline
+                      className="w-full rounded-xl"
+                    />
+                    <canvas ref={canvasRef} className="hidden" />
+                    
+                    <div className="mt-4 flex gap-4 justify-center">
+                      <button
+                        onClick={capturePhoto}
+                        className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-green-500/30 hover:scale-105 transition-all flex items-center gap-2"
+                      >
+                        <Camera className="w-5 h-5" />
+                        Capture Palm
+                      </button>
+                      <button
+                        onClick={stopWebcam}
+                        className="px-8 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-red-500/30 hover:scale-105 transition-all"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
-            </div>
-          ) : null}
 
-          {/* Palm Lines Guide */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-              <Eye className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-              {t.palmLinesMeaning}
-            </h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              {palmLines.map((item, index) => {
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={index}
-                    className="flex gap-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600"
-                  >
-                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 dark:text-white mb-2">{item.line}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{item.meaning}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      ) : (
-        <>
-          {/* Readings List */}
-          <div className="space-y-4">
-            {readings.map((reading) => (
-              <div
-                key={reading.id}
-                className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-gray-200 dark:border-gray-700 p-6 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg transition-all"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex gap-4 flex-1">
-                    <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-xl flex items-center justify-center">
-                      <Hand className={`w-10 h-10 text-emerald-600 dark:text-emerald-400 ${reading.hand === 'Left' ? '' : 'scale-x-[-1]'}`} strokeWidth={2} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{reading.name}</h3>
-                      <div className="grid grid-cols-2 gap-4 mb-3">
-                        <div>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">{t.lifeLine}: </span>
-                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{reading.lifeLineStrength}</span>
-                        </div>
-                        <div>
-                          <span className="text-sm text-gray-600 dark:text-gray-400">{t.heartLine}: </span>
-                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{reading.heartLineStrength}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">{reading.date}</p>
-                    <button className="px-6 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors">
-                      {t.viewDetails}
+              {/* Image Preview */}
+              {imagePreview && !showWebcam && (
+                <div className="mt-6 p-4 bg-slate-700/30 rounded-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-semibold">Preview - {selectedHand.charAt(0).toUpperCase() + selectedHand.slice(1)} Hand</h3>
+                    <button
+                      onClick={() => setImagePreview(null)}
+                      className="text-slate-400 hover:text-white transition-colors"
+                    >
+                      Clear
                     </button>
                   </div>
+                  <img src={imagePreview} alt="Palm Preview" className="max-h-64 mx-auto rounded-lg shadow-lg" />
                 </div>
+              )}
+
+              <div className="mt-6 p-4 bg-gradient-to-r from-amber-600/10 to-orange-600/10 border border-amber-500/20 rounded-xl">
+                <p className="text-sm text-amber-200">
+                  <strong>Tip:</strong> For best results, photograph your palm in good lighting with fingers slightly apart. 
+                  The {selectedHand} hand shows your {selectedHand === 'right' ? 'current reality and conscious choices' : 'potential and inner self'}.
+                </p>
               </div>
-            ))}
+            </div>
+
+            {/* Palm Reading Guide */}
+            <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                <Compass className="w-6 h-6 text-emerald-400" />
+                Major Palm Lines
+              </h2>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                {majorLines.map((line) => {
+                  const Icon = line.icon;
+                  return (
+                    <div
+                      key={line.name}
+                      className="p-6 bg-gradient-to-br from-emerald-600/10 to-green-600/10 border border-emerald-500/20 rounded-2xl hover:border-emerald-400/40 transition-all hover:scale-105"
+                    >
+                      <Icon className="w-8 h-8 text-emerald-400 mb-3" />
+                      <h3 className="text-lg font-bold text-white mb-2">{line.name}</h3>
+                      <p className="text-sm text-slate-400">{line.description}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        </>
-      )}
+        )}
+
+        {/* Analysis Tab */}
+        {activeTab === 'analysis' && (
+          <div className="max-w-6xl mx-auto space-y-8">
+            {loading ? (
+              <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-16 text-center">
+                <Loader2 className="w-16 h-16 text-emerald-400 animate-spin mx-auto mb-4" />
+                <p className="text-slate-400 text-lg">Analyzing palm lines and features...</p>
+              </div>
+            ) : analysis && !analysis.error ? (
+              <>
+                {/* Overview */}
+                <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                      <Hand className="w-8 h-8 text-emerald-400" />
+                      Palm Reading - {analysis.hand} Hand
+                    </h2>
+                    <div className="px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-semibold text-green-300">AI Analysis</span>
+                    </div>
+                  </div>
+
+                  {analysis.hand_meaning && (
+                    <div className="p-6 bg-gradient-to-r from-emerald-600/10 to-green-600/10 border border-emerald-500/20 rounded-2xl mb-6">
+                      <h3 className="text-lg font-bold text-emerald-200 mb-2">Hand Significance</h3>
+                      <p className="text-slate-300">{analysis.hand_meaning}</p>
+                    </div>
+                  )}
+
+                  {/* Hand Shape */}
+                  {analysis.features?.hand_shape && (
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="p-6 bg-gradient-to-br from-purple-600/20 to-purple-800/20 rounded-2xl border border-purple-500/30">
+                        <div className="text-sm font-semibold text-purple-300 mb-2 uppercase tracking-wider">Hand Element</div>
+                        <div className="text-4xl font-bold text-purple-400 mb-2 capitalize">{analysis.features.hand_shape}</div>
+                        <div className="text-sm text-slate-300 mb-3">{handShapeInfo[analysis.features.hand_shape]?.description}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {handShapeInfo[analysis.features.hand_shape]?.traits.map((trait: string) => (
+                            <span key={trait} className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs font-semibold">
+                              {trait}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {analysis.interpretation?.element && (
+                        <div className="p-6 bg-gradient-to-br from-emerald-600/20 to-green-800/20 rounded-2xl border border-emerald-500/30">
+                          <div className="text-sm font-semibold text-emerald-300 mb-2 uppercase tracking-wider">Element Traits</div>
+                          <p className="text-slate-300">{analysis.interpretation.element}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Major Lines */}
+                {analysis.features?.lines && (
+                  <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                    <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                      <TrendingUp className="w-6 h-6 text-emerald-400" />
+                      Major Palm Lines
+                    </h2>
+                    
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {/* Life Line */}
+                      {analysis.features.lines.life_line && (
+                        <div className="p-6 bg-gradient-to-br from-rose-600/10 to-pink-600/10 border border-rose-500/20 rounded-2xl">
+                          <div className="flex items-center gap-3 mb-4">
+                            <Heart className="w-6 h-6 text-rose-400" />
+                            <h3 className="text-xl font-bold text-white">Life Line</h3>
+                          </div>
+                          <div className="space-y-2 mb-3">
+                            <div>
+                              <span className="text-sm text-rose-300 font-semibold">Length: </span>
+                              <span className="text-slate-200 capitalize">{analysis.features.lines.life_line.length}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-rose-300 font-semibold">Quality: </span>
+                              <span className="text-slate-200 capitalize">{analysis.features.lines.life_line.quality}</span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-slate-300 italic">{analysis.features.lines.life_line.meaning}</p>
+                        </div>
+                      )}
+
+                      {/* Head Line */}
+                      {analysis.features.lines.head_line && (
+                        <div className="p-6 bg-gradient-to-br from-blue-600/10 to-cyan-600/10 border border-blue-500/20 rounded-2xl">
+                          <div className="flex items-center gap-3 mb-4">
+                            <Brain className="w-6 h-6 text-blue-400" />
+                            <h3 className="text-xl font-bold text-white">Head Line</h3>
+                          </div>
+                          <div className="space-y-2 mb-3">
+                            <div>
+                              <span className="text-sm text-blue-300 font-semibold">Direction: </span>
+                              <span className="text-slate-200 capitalize">{analysis.features.lines.head_line.direction}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-blue-300 font-semibold">Quality: </span>
+                              <span className="text-slate-200 capitalize">{analysis.features.lines.head_line.quality}</span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-slate-300 italic">{analysis.features.lines.head_line.meaning}</p>
+                        </div>
+                      )}
+
+                      {/* Heart Line */}
+                      {analysis.features.lines.heart_line && (
+                        <div className="p-6 bg-gradient-to-br from-pink-600/10 to-rose-600/10 border border-pink-500/20 rounded-2xl">
+                          <div className="flex items-center gap-3 mb-4">
+                            <Heart className="w-6 h-6 text-pink-400" />
+                            <h3 className="text-xl font-bold text-white">Heart Line</h3>
+                          </div>
+                          <div className="space-y-2 mb-3">
+                            <div>
+                              <span className="text-sm text-pink-300 font-semibold">Curvature: </span>
+                              <span className="text-slate-200 capitalize">{analysis.features.lines.heart_line.curvature}</span>
+                            </div>
+                            <div>
+                              <span className="text-sm text-pink-300 font-semibold">Quality: </span>
+                              <span className="text-slate-200 capitalize">{analysis.features.lines.heart_line.quality}</span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-slate-300 italic">{analysis.features.lines.heart_line.meaning}</p>
+                        </div>
+                      )}
+
+                      {/* Fate Line */}
+                      {analysis.features.lines.fate_line && (
+                        <div className="p-6 bg-gradient-to-br from-amber-600/10 to-orange-600/10 border border-amber-500/20 rounded-2xl">
+                          <div className="flex items-center gap-3 mb-4">
+                            <Target className="w-6 h-6 text-amber-400" />
+                            <h3 className="text-xl font-bold text-white">Fate Line</h3>
+                          </div>
+                          <div className="mb-3">
+                            <span className="text-sm text-amber-300 font-semibold">Strength: </span>
+                            <span className="text-slate-200 capitalize">{analysis.features.lines.fate_line.strength}</span>
+                          </div>
+                          <p className="text-sm text-slate-300 italic">{analysis.features.lines.fate_line.meaning}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Fingers Analysis */}
+                {analysis.features?.fingers && (
+                  <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                    <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                      <Hand className="w-6 h-6 text-emerald-400" />
+                      Finger Analysis
+                    </h2>
+                    
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {Object.entries(analysis.features.fingers).map(([finger, data]: [string, any]) => (
+                        <div key={finger} className="p-6 bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border border-indigo-500/20 rounded-2xl">
+                          <h3 className="text-lg font-bold text-white mb-2 capitalize">{finger} Finger</h3>
+                          <div className="mb-3">
+                            <span className="text-sm text-indigo-300 font-semibold">Length: </span>
+                            <span className="text-slate-200 capitalize">{data.length}</span>
+                          </div>
+                          <p className="text-sm text-slate-300 italic">{data.meaning}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mounts */}
+                {analysis.features?.mounts && (
+                  <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                    <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                      <Crown className="w-6 h-6 text-emerald-400" />
+                      Palm Mounts
+                    </h2>
+                    
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {Object.entries(analysis.features.mounts).map(([mount, data]: [string, any]) => (
+                        <div key={mount} className="p-6 bg-gradient-to-br from-emerald-600/10 to-green-600/10 border border-emerald-500/20 rounded-2xl">
+                          <h3 className="text-lg font-bold text-white mb-2 capitalize">Mount of {mount}</h3>
+                          <div className="mb-3 space-y-1">
+                            <div className="text-xs text-emerald-300">{data.location}</div>
+                            <div>
+                              <span className="text-sm text-emerald-300 font-semibold">Prominence: </span>
+                              <span className="text-slate-200 capitalize">{data.prominence}</span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-slate-300 italic">{data.meaning}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Life Insights */}
+                {analysis.interpretation && (
+                  <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                    <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                      <Award className="w-6 h-6 text-emerald-400" />
+                      Life Insights
+                    </h2>
+                    
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {analysis.interpretation.personality && (
+                        <div className="p-6 bg-gradient-to-r from-purple-600/10 to-pink-600/10 border border-purple-500/20 rounded-2xl">
+                          <h3 className="text-lg font-bold text-purple-200 mb-2">Personality</h3>
+                          <p className="text-slate-300">{analysis.interpretation.personality}</p>
+                        </div>
+                      )}
+                      
+                      {analysis.interpretation.career && (
+                        <div className="p-6 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 border border-blue-500/20 rounded-2xl">
+                          <h3 className="text-lg font-bold text-blue-200 mb-2">Career Path</h3>
+                          <p className="text-slate-300">{analysis.interpretation.career}</p>
+                        </div>
+                      )}
+                      
+                      {analysis.interpretation.relationships && (
+                        <div className="p-6 bg-gradient-to-r from-pink-600/10 to-rose-600/10 border border-pink-500/20 rounded-2xl">
+                          <h3 className="text-lg font-bold text-pink-200 mb-2">Relationships</h3>
+                          <p className="text-slate-300">{analysis.interpretation.relationships}</p>
+                        </div>
+                      )}
+                      
+                      {analysis.interpretation.health && (
+                        <div className="p-6 bg-gradient-to-r from-green-600/10 to-emerald-600/10 border border-green-500/20 rounded-2xl">
+                          <h3 className="text-lg font-bold text-green-200 mb-2">Health & Vitality</h3>
+                          <p className="text-slate-300">{analysis.interpretation.health}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

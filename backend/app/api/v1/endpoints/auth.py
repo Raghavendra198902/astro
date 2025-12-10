@@ -13,7 +13,8 @@ from app.core.security import (
     get_password_hash,
     verify_password,
     create_access_token,
-    create_refresh_token
+    create_refresh_token,
+    get_current_active_user
 )
 from app.models.models import User, UserRole, Profile, TOBAccuracy, ChartSystem
 from app.schemas.schemas import (
@@ -161,3 +162,11 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_me(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get current user information"""
+    return current_user

@@ -13,7 +13,8 @@ from app.api.v1.endpoints import (
     transits,  # ✅ Re-enabled
     vision,  # ⚠️ Will gracefully fail if OpenCV missing
     users,
-    consultations  # ✅ Re-enabled - Subscription model added
+    consultations,  # ✅ Re-enabled - Subscription model added
+    panchang  # ✅ Hindu Panchang calendar
 )
 
 api_router = APIRouter()
@@ -41,4 +42,7 @@ api_router.include_router(payments.router, prefix="/payments", tags=["Payments"]
 
 # Consultations
 api_router.include_router(consultations.router, prefix="/consultations", tags=["Consultations"])
+
+# Panchang (Hindu Calendar)
+api_router.include_router(panchang.router, prefix="/panchang", tags=["Panchang"])
 

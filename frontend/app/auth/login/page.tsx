@@ -1,303 +1,324 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { toast } from 'sonner';
-import { Eye, EyeOff, Loader2, Sparkles, User, ArrowRight, Shield, Mail, Lock } from 'lucide-react';
-import { useAuth } from '@/lib/hooks/useAuth';
-
-const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
-
-const DEMO_ACCOUNTS = [
-  {
-    type: 'Seeker',
-    email: 'seeker@demo.com',
-    password: 'demo1234',
-    description: 'Experience as a user seeking astrological guidance',
-    icon: User,
-    gradient: 'from-blue-600 to-violet-600',
-    bgGradient: 'from-blue-50 to-violet-50',
-  },
-  {
-    type: 'Astrologer',
-    email: 'astrologer@demo.com',
-    password: 'demo1234',
-    description: 'View astrologer dashboard with consultation management',
-    icon: Sparkles,
-    gradient: 'from-violet-600 to-purple-600',
-    bgGradient: 'from-violet-50 to-purple-50',
-  },
-];
+import { Eye, EyeOff, Sparkles, ArrowRight, Shield, Mail, Lock } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
   });
 
-  const loginWithDemo = (email: string, password: string) => {
-    setValue('email', email);
-    setValue('password', password);
+  const validateForm = () => {
+    const newErrors: { email?: string; password?: string } = {};
+    
+    if (!formData.email) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Invalid email address';
+    }
+    
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const onSubmit = async (data: LoginFormData) => {
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+    
     setIsLoading(true);
+    
     try {
-      await login({ username: data.email, password: data.password });
-      toast.success('Welcome back!');
-      router.push('/dashboard');
+      const formBody = new URLSearchParams();
+      formBody.append('username', formData.email);
+      formBody.append('password', formData.password);
+
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formBody.toString(),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('token', data.access_token);
+        router.push('/dashboard');
+      } else {
+        const error = await response.json();
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : (Array.isArray(error.detail) ? error.detail[0]?.msg : 'Invalid credentials');
+        setErrors({ email: errorMessage || 'Invalid credentials' });
+      }
     } catch (error) {
-      const apiError = error as any;
-      toast.error(apiError.detail || 'Login failed. Please check your credentials.');
+      setErrors({ email: 'Connection error. Please try again.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setFormData({ email: 'demo@astroai.com', password: 'demo1234' });
+    setErrors({});
+    setIsLoading(true);
+    
+    try {
+      const formBody = new URLSearchParams();
+      formBody.append('username', 'demo@astroai.com');
+      formBody.append('password', 'demo1234');
+
+      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formBody.toString(),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('token', data.access_token);
+        router.push('/dashboard');
+      } else {
+        const error = await response.json();
+        const errorMessage = typeof error.detail === 'string' 
+          ? error.detail 
+          : (Array.isArray(error.detail) ? error.detail[0]?.msg : 'Demo login failed');
+        setErrors({ email: errorMessage || 'Demo login failed' });
+      }
+    } catch (error) {
+      setErrors({ email: 'Connection error. Please try again.' });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex">
-      {/* Left Side - Branding & Info */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-violet-600 via-indigo-600 to-violet-700 p-12 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff12_1px,transparent_1px),linear-gradient(to_bottom,#ffffff12_1px,transparent_1px)] bg-[size:32px_32px]"></div>
-        
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950 text-white flex">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      </div>
+
+      {/* Left Side - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden p-12">
         <div className="relative z-10 flex flex-col justify-between w-full">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform border border-white/30">
-              <Sparkles className="w-6 h-6 text-white" strokeWidth={2.5} />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-2xl font-bold text-white tracking-tight">Astor AI</span>
-              <span className="text-xs text-violet-200 font-medium tracking-wide">Enterprise Astrology</span>
-            </div>
+            <Sparkles className="w-8 h-8 text-purple-400" />
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+              AstroAI
+            </span>
           </Link>
 
           {/* Center Content */}
           <div className="space-y-8">
             <div className="space-y-4">
               <h1 className="text-5xl font-bold text-white leading-tight">
-                Welcome Back to Your Journey
+                Welcome Back to Your
+                <span className="block bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+                  Cosmic Journey
+                </span>
               </h1>
-              <p className="text-xl text-violet-100 leading-relaxed">
-                Sign in to access your personalized astrology dashboard, consultations, and AI-powered insights.
+              <p className="text-xl text-gray-400 leading-relaxed">
+                Access your personalized astrology dashboard, AI-powered insights, and cosmic guidance.
               </p>
             </div>
 
             {/* Features */}
             <div className="space-y-4">
-              <div className="flex items-start gap-4 bg-white/10 backdrop-blur-xl rounded-xl p-4 border border-white/20">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-5 h-5 text-white" strokeWidth={2} />
+              <div className="flex items-start gap-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold mb-1">Enterprise Security</h3>
-                  <p className="text-violet-100 text-sm">Your data is protected with bank-grade encryption</p>
+                  <h3 className="text-white font-semibold mb-1">Secure & Private</h3>
+                  <p className="text-gray-400 text-sm">Your data protected with enterprise-grade security</p>
                 </div>
               </div>
               
-              <div className="flex items-start gap-4 bg-white/10 backdrop-blur-xl rounded-xl p-4 border border-white/20">
-                <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Sparkles className="w-5 h-5 text-white" strokeWidth={2} />
+              <div className="flex items-start gap-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-white font-semibold mb-1">AI-Powered Insights</h3>
-                  <p className="text-violet-100 text-sm">Get personalized readings from advanced AI models</p>
+                  <h3 className="text-white font-semibold mb-1">AI-Powered Analysis</h3>
+                  <p className="text-gray-400 text-sm">Advanced interpretations from cutting-edge AI</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="text-violet-200 text-sm">
-            © 2025 Astor AI. All rights reserved.
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-white">50K+</div>
+              <div className="text-sm text-gray-400">Active Users</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-white">100K+</div>
+              <div className="text-sm text-gray-400">Charts Created</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-white">98%</div>
+              <div className="text-sm text-gray-400">Satisfaction</div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 relative z-10">
         <div className="w-full max-w-md space-y-8">
           {/* Mobile Logo */}
-          <div className="lg:hidden text-center">
-            <Link href="/" className="inline-flex items-center gap-3 group">
-              <div className="w-12 h-12 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg">
-                <Sparkles className="w-6 h-6 text-white" strokeWidth={2.5} />
-              </div>
-              <span className="text-2xl font-bold text-gray-900">Astor AI</span>
-            </Link>
-          </div>
+          <Link href="/" className="lg:hidden flex items-center justify-center gap-2 mb-8">
+            <Sparkles className="w-8 h-8 text-purple-400" />
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
+              AstroAI
+            </span>
+          </Link>
 
-          {/* Header */}
-          <div className="text-center space-y-2">
-            <h2 className="text-3xl font-bold text-gray-900">Sign In</h2>
-            <p className="text-gray-600">Enter your credentials to access your account</p>
-          </div>
-
-          {/* Demo Accounts */}
-          <div className="space-y-3">
-            <div className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <span>Quick Demo Access</span>
-              <div className="h-px flex-1 bg-gray-200"></div>
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-white mb-2">Sign In</h2>
+              <p className="text-gray-400">Enter your credentials to access your account</p>
             </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              {DEMO_ACCOUNTS.map((demo) => {
-                const Icon = demo.icon;
-                return (
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email Field */}
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    placeholder="you@example.com"
+                  />
+                </div>
+                {errors.email && (
+                  <p className="mt-2 text-sm text-red-400">{errors.email}</p>
+                )}
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full pl-11 pr-12 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                    placeholder="••••••••"
+                  />
                   <button
-                    key={demo.type}
-                    onClick={() => loginWithDemo(demo.email, demo.password)}
-                    className={`group relative p-4 rounded-xl border-2 border-gray-200 hover:border-violet-400 bg-gradient-to-br ${demo.bgGradient} transition-all hover:shadow-lg text-left`}
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition"
                   >
-                    <div className={`w-10 h-10 bg-gradient-to-br ${demo.gradient} rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shadow-md`}>
-                      <Icon className="w-5 h-5 text-white" strokeWidth={2.5} />
-                    </div>
-                    <div className="font-semibold text-gray-900 mb-1">{demo.type}</div>
-                    <div className="text-xs text-gray-600 line-clamp-2">{demo.description}</div>
-                    <ArrowRight className="absolute top-4 right-4 w-4 h-4 text-gray-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all" />
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500 font-medium">Or continue with email</span>
-            </div>
-          </div>
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Mail className="w-5 h-5" strokeWidth={2} />
                 </div>
-                <input
-                  {...register('email')}
-                  type="email"
-                  id="email"
-                  placeholder="you@example.com"
-                  className="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-gray-200 rounded-xl focus:border-violet-500 focus:ring-4 focus:ring-violet-100 outline-none transition-all text-gray-900 placeholder:text-gray-400"
-                />
+                {errors.password && (
+                  <p className="mt-2 text-sm text-red-400">{errors.password}</p>
+                )}
               </div>
-              {errors.email && (
-                <p className="mt-2 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
 
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Lock className="w-5 h-5" strokeWidth={2} />
-                </div>
-                <input
-                  {...register('password')}
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  placeholder="••••••••"
-                  className="w-full pl-12 pr-12 py-3.5 bg-white border-2 border-gray-200 rounded-xl focus:border-violet-500 focus:ring-4 focus:ring-violet-100 outline-none transition-all text-gray-900 placeholder:text-gray-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" strokeWidth={2} />
-                  ) : (
-                    <Eye className="w-5 h-5" strokeWidth={2} />
-                  )}
-                </button>
+              {/* Remember & Forgot */}
+              <div className="flex items-center justify-between text-sm">
+                <label className="flex items-center text-gray-400 cursor-pointer">
+                  <input type="checkbox" className="mr-2 w-4 h-4 rounded border-white/10 bg-white/5 text-purple-600 focus:ring-purple-500 focus:ring-offset-slate-950" />
+                  Remember me
+                </label>
+                <Link href="/auth/forgot-password" className="text-purple-400 hover:text-purple-300 transition">
+                  Forgot password?
+                </Link>
               </div>
-              {errors.password && (
-                <p className="mt-2 text-sm text-red-600">{errors.password.message}</p>
-              )}
-            </div>
 
-            {/* Remember & Forgot */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500 focus:ring-2 cursor-pointer"
-                />
-                <span className="text-sm text-gray-700 group-hover:text-gray-900">Remember me</span>
-              </label>
-              <Link
-                href="/auth/forgot-password"
-                className="text-sm font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-950 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Forgot password?
-              </Link>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="group relative w-full py-4 rounded-xl font-semibold text-white overflow-hidden shadow-lg hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-violet-600 to-indigo-600 group-hover:scale-105 transition-transform"></div>
-              <span className="relative flex items-center justify-center gap-2">
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     Signing in...
                   </>
                 ) : (
                   <>
                     Sign In
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-5 h-5" />
                   </>
                 )}
-              </span>
-            </button>
-          </form>
+              </button>
+            </form>
 
-          {/* Sign Up Link */}
-          <div className="text-center">
-            <p className="text-gray-600">
-              Don't have an account?{' '}
-              <Link
-                href="/auth/register"
-                className="font-semibold text-violet-600 hover:text-violet-700 transition-colors"
+            {/* Divider */}
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-slate-950 text-gray-400">Or continue with</span>
+              </div>
+            </div>
+
+            {/* Demo Accounts */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={handleDemoLogin}
+                disabled={isLoading}
+                className="w-full py-2.5 px-4 bg-white/5 border border-white/10 text-white rounded-lg hover:bg-white/10 transition text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create one now
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                Try Demo Account (demo@astroai.com)
+              </button>
+            </div>
+
+            {/* Sign Up Link */}
+            <p className="mt-6 text-center text-sm text-gray-400">
+              Don&apos;t have an account?{' '}
+              <Link href="/auth/register" className="text-purple-400 hover:text-purple-300 font-semibold transition">
+                Sign up for free
               </Link>
             </p>
+          </div>
+
+          {/* Back to Home */}
+          <div className="text-center">
+            <Link href="/" className="text-sm text-gray-400 hover:text-white transition">
+              ← Back to home
+            </Link>
           </div>
         </div>
       </div>
