@@ -9,19 +9,13 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import User, Chart, CompatibilityAnalysis
+from app.models.models import User, Chart, CompatibilityRequest as CompatibilityRequestModel
 from app.schemas.schemas import (
     CompatibilityRequest,
     CompatibilityResponse
 )
-from app.services.compat.kundali_milan import (
-    calculate_guna_milan,
-    check_mangal_dosha
-)
-from app.services.compat.western_synastry import (
-    analyze_synastry,
-    calculate_composite_chart
-)
+from app.services.compat.kundali_milan import KundaliMilan
+from app.services.compat.western_synastry import WesternSynastry
 
 router = APIRouter()
 
@@ -56,14 +50,15 @@ async def kundali_milan_analysis(
     
     try:
         # Calculate Guna Milan
-        guna_result = calculate_guna_milan(
+        kundali_milan = KundaliMilan()
+        guna_result = kundali_milan.calculate_guna_milan(
             chart1.chart_data,
             chart2.chart_data
         )
         
         # Check Mangal Dosha
-        mangal1 = check_mangal_dosha(chart1.chart_data)
-        mangal2 = check_mangal_dosha(chart2.chart_data)
+        mangal1 = kundali_milan.check_mangal_dosha(chart1.chart_data)
+        mangal2 = kundali_milan.check_mangal_dosha(chart2.chart_data)
         
         analysis_data = {
             "method": "kundali_milan",
@@ -77,12 +72,12 @@ async def kundali_milan_analysis(
         }
         
         # Save analysis
-        analysis = CompatibilityAnalysis(
-            chart1_id=chart1.id,
-            chart2_id=chart2.id,
-            analysis_type="kundali_milan",
-            compatibility_score=guna_result["total_score"] / guna_result["max_score"] * 100,
-            analysis_data=analysis_data
+        analysis = CompatibilityRequestModel(
+            chart_a_id=chart1.id,
+            chart_b_id=chart2.id,
+            system="vedic",
+            raw_json=analysis_data,
+            guna_score=guna_result["total_score"]
         )
         
         db.add(analysis)
@@ -128,13 +123,14 @@ async def western_synastry_analysis(
     
     try:
         # Analyze synastry
-        synastry_result = analyze_synastry(
+        synastry = WesternSynastry()
+        synastry_result = synastry.analyze_synastry(
             chart1.chart_data,
             chart2.chart_data
         )
         
         # Calculate composite chart
-        composite = calculate_composite_chart(
+        composite = synastry.calculate_composite_chart(
             chart1.chart_data,
             chart2.chart_data
         )
@@ -149,12 +145,12 @@ async def western_synastry_analysis(
         }
         
         # Save analysis
-        analysis = CompatibilityAnalysis(
-            chart1_id=chart1.id,
-            chart2_id=chart2.id,
-            analysis_type="western_synastry",
-            compatibility_score=synastry_result["overall_score"],
-            analysis_data=analysis_data
+        analysis = CompatibilityRequestModel(
+            chart_a_id=chart1.id,
+            chart_b_id=chart2.id,
+            system="western",
+            raw_json=analysis_data,
+            synastry_score=synastry_result["overall_score"]
         )
         
         db.add(analysis)
@@ -177,10 +173,10 @@ async def get_compatibility_analysis(
     db: AsyncSession = Depends(get_db)
 ):
     """Get compatibility analysis by ID"""
-    stmt = select(CompatibilityAnalysis).join(
-        Chart, CompatibilityAnalysis.chart1_id == Chart.id
+    stmt = select(CompatibilityRequestModel).join(
+        Chart, CompatibilityRequestModel.chart_a_id == Chart.id
     ).where(
-        CompatibilityAnalysis.id == analysis_id
+        CompatibilityRequestModel.id == analysis_id
     )
     result = await db.execute(stmt)
     analysis = result.scalars().first()

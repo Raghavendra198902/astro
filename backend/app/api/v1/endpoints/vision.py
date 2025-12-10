@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import cv2
 import numpy as np
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -56,12 +57,14 @@ async def analyze_face(
                 detail="No face detected in image"
             )
         
-        # Save reading
+        # Save reading (30 day retention)
+        expires_at = datetime.utcnow() + timedelta(days=30)
         reading = BiometricReading(
             user_id=current_user.id,
             reading_type="face",
             analysis_data=analysis,
-            user_consent=user_consent
+            user_consent=user_consent,
+            expires_at=expires_at
         )
         
         db.add(reading)
@@ -112,12 +115,14 @@ async def analyze_palm(
                 detail="No hand detected in image"
             )
         
-        # Save reading
+        # Save reading (30 day retention)
+        expires_at = datetime.utcnow() + timedelta(days=30)
         reading = BiometricReading(
             user_id=current_user.id,
             reading_type="palm",
             analysis_data=analysis,
-            user_consent=user_consent
+            user_consent=user_consent,
+            expires_at=expires_at
         )
         
         db.add(reading)

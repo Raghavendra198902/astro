@@ -9,51 +9,90 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import User, NumerologyProfile
+from app.models.models import User, NumerologyRun, Profile
 from app.schemas.schemas import (
     NumerologyRequest,
     NumerologyResponse
 )
-from app.services.numerology.engine import calculate_full_analysis
+from app.services.numerology.engine import NumerologyEngine
 
 router = APIRouter()
 
+# Initialize numerology engine
+numerology_engine = NumerologyEngine()
+
 
 @router.post("/", response_model=NumerologyResponse, status_code=status.HTTP_201_CREATED)
-async def create_numerology_profile(
+async def create_numerology_analysis(
     request: NumerologyRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Generate complete numerology profile"""
+    """Generate numerology analysis for a profile"""
     try:
-        # Calculate numerology
-        analysis = calculate_full_analysis(
-            birth_date=request.birth_date,
-            full_name=request.full_name,
+        # Get profile_id (use provided or first profile)
+        profile_id = request.profile_id
+        if not profile_id:
+            stmt = select(Profile).where(Profile.user_id == current_user.id).limit(1)
+            result = await db.execute(stmt)
+            first_profile = result.scalars().first()
+            if not first_profile:
+                raise HTTPException(status_code=404, detail="No profile found")
+            profile_id = first_profile.id
+        
+        # Get the profile
+        stmt = select(Profile).where(
+            Profile.id == profile_id,
+            Profile.user_id == current_user.id
+        )
+        result = await db.execute(stmt)
+        profile = result.scalars().first()
+        
+        if not profile:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Profile not found"
+            )
+        
+        # Calculate numerology using request name (not profile name)
+        analysis = numerology_engine.calculate_full_analysis(
+            birth_date=profile.dob_ts_utc,
+            full_name=request.full_name,  # Use provided name
             system=request.system
         )
         
-        # Save profile
-        profile = NumerologyProfile(
-            user_id=current_user.id,
-            full_name=request.full_name,
-            birth_date=request.birth_date,
+        # Create input hash for deduplication
+        import hashlib
+        input_str = f"{profile_id}{request.system}{request.full_name}"
+        input_hash = hashlib.sha256(input_str.encode()).hexdigest()
+        
+        # Check if analysis already exists
+        stmt = select(NumerologyRun).where(
+            NumerologyRun.profile_id == profile.id,
+            NumerologyRun.input_hash == input_hash
+        )
+        result = await db.execute(stmt)
+        existing = result.scalars().first()
+        
+        if existing:
+            return existing
+        
+        # Save new analysis
+        numerology_run = NumerologyRun(
+            profile_id=profile.id,
             system=request.system,
-            life_path_number=analysis["life_path"]["number"],
-            expression_number=analysis["expression"]["number"],
-            soul_urge_number=analysis["soul_urge"]["number"],
-            personality_number=analysis["personality"]["number"],
-            maturity_number=analysis.get("maturity", {}).get("number"),
-            analysis_data=analysis
+            input_hash=input_hash,
+            json_result=analysis
         )
         
-        db.add(profile)
+        db.add(numerology_run)
         await db.commit()
-        await db.refresh(profile)
+        await db.refresh(numerology_run)
         
-        return profile
+        return numerology_run
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -61,42 +100,58 @@ async def create_numerology_profile(
         )
 
 
-@router.get("/{profile_id}", response_model=NumerologyResponse)
-async def get_numerology_profile(
-    profile_id: int,
+@router.get("/{run_id}", response_model=NumerologyResponse)
+async def get_numerology_analysis(
+    run_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get numerology profile by ID"""
-    stmt = select(NumerologyProfile).where(
-        NumerologyProfile.id == profile_id,
-        NumerologyProfile.user_id == current_user.id
-    )
-    result = await db.execute(stmt)
-    profile = result.scalars().first()
+    """Get numerology analysis by ID"""
+    from uuid import UUID
     
-    if not profile:
+    try:
+        run_uuid = UUID(run_id)
+    except ValueError:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Profile not found"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid UUID format"
         )
     
-    return profile
+    # Join with Profile to verify ownership
+    stmt = select(NumerologyRun).join(Profile).where(
+        NumerologyRun.id == run_uuid,
+        Profile.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    numerology_run = result.scalars().first()
+    
+    if not numerology_run:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Analysis not found"
+        )
+    
+    return numerology_run
 
 
 @router.get("/", response_model=list[NumerologyResponse])
-async def list_numerology_profiles(
+async def list_numerology_analyses(
     skip: int = 0,
     limit: int = 20,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """List user's numerology profiles"""
-    stmt = select(NumerologyProfile).where(
-        NumerologyProfile.user_id == current_user.id
-    ).offset(skip).limit(limit)
+    """List user's numerology analyses across all profiles"""
+    stmt = (
+        select(NumerologyRun)
+        .join(Profile)
+        .where(Profile.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+        .order_by(NumerologyRun.created_at.desc())
+    )
     
     result = await db.execute(stmt)
-    profiles = result.scalars().all()
+    analyses = result.scalars().all()
     
-    return profiles
+    return analyses

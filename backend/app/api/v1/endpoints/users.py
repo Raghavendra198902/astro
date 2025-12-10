@@ -9,8 +9,8 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.security import get_current_user, get_password_hash
-from app.models.models import User
-from app.schemas.schemas import UserResponse, UserUpdate
+from app.models.models import User, Profile
+from app.schemas.schemas import UserResponse, UserUpdate, ProfileResponse
 
 router = APIRouter()
 
@@ -56,6 +56,18 @@ async def update_user_profile(
     await db.refresh(current_user)
     
     return current_user
+
+
+@router.get("/profiles", response_model=list[ProfileResponse])
+async def list_user_profiles(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all profiles for current user"""
+    stmt = select(Profile).where(Profile.user_id == current_user.id)
+    result = await db.execute(stmt)
+    profiles = result.scalars().all()
+    return profiles
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

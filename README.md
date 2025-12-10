@@ -2,13 +2,13 @@
 
 
 
-[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/Raghavendra198902/astro)**Version:** 1.0  
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/Raghavendra198902/astro)**Version:** 2.0.0  
 
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)**Owner:** Raghavendra  
 
-[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)**Date:** Oct 22, 2025
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)**Release:** Enterprise Launch
 
-[![Next.js](https://img.shields.io/badge/next.js-14-black.svg)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/next.js-14-black.svg)](https://nextjs.org/)**Date:** Dec 10, 2025
 
 ## Overview
 

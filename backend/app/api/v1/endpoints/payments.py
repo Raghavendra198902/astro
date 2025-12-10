@@ -78,9 +78,13 @@ async def create_subscription(
     
     try:
         # Create subscription with payment provider
-        subscription_data = gateway.create_subscription(
+        # Convert plan_name string to SubscriptionPlan enum
+        from app.services.payment.gateway import SubscriptionPlan
+        plan_enum = SubscriptionPlan(request.plan_name)
+        
+        subscription_data = await gateway.create_subscription(
             customer_id=current_user.email,  # Use email as customer ID
-            plan_name=request.plan_name,
+            plan=plan_enum,
             trial_days=request.trial_days
         )
         

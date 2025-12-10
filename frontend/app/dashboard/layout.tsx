@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/lib/stores/auth.store';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { 
   LayoutDashboard, 
   Users, 
@@ -33,113 +33,107 @@ import {
   ChevronRight,
   Home
 } from 'lucide-react';
-import { LanguageProvider, useLanguage } from '@/lib/contexts/language.context';
-import { ThemeProvider, useTheme } from '@/lib/contexts/theme.context';
-import { dashboardTranslations } from '@/lib/translations/dashboard.translations';
+import { toast } from 'sonner';
 
 const DashboardContent = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
-  const { language, setLanguage } = useLanguage();
-  const { theme, setTheme } = useTheme();
+  const { user, logout, isLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
-
-  const t = dashboardTranslations[language];
 
   const navigation = [
-    { name: t.dashboard, href: '/dashboard', icon: Home, color: 'violet' },
-    { name: t.myCharts, href: '/dashboard/charts', icon: BarChart3, color: 'blue' },
-    { name: t.consultations, href: '/dashboard/consultations', icon: CalendarIcon, color: 'green' },
-    { name: t.compatibility, href: '/dashboard/compatibility', icon: Users, color: 'pink' },
-    { name: t.dailyPanchang, href: '/dashboard/panchang', icon: Calendar, color: 'orange' },
+    { name: 'Dashboard', href: '/dashboard', icon: Home, color: 'violet' },
+    { name: 'My Charts', href: '/dashboard/charts', icon: BarChart3, color: 'blue' },
+    { name: 'Consultations', href: '/dashboard/consultations', icon: CalendarIcon, color: 'green' },
+    { name: 'Compatibility', href: '/dashboard/compatibility', icon: Users, color: 'pink' },
+    { name: 'Panchang', href: '/dashboard/panchang', icon: Calendar, color: 'orange' },
     { name: 'Life Events', href: '/dashboard/life-events', icon: Sparkles, color: 'indigo' },
-    { name: t.predictions, href: '/dashboard/predictions', icon: Zap, color: 'yellow' },
-    { name: t.numerology, href: '/dashboard/numerology', icon: Calculator, color: 'purple' },
-    { name: t.faceReading, href: '/dashboard/face-reading', icon: Scan, color: 'cyan' },
-    { name: t.palmistry, href: '/dashboard/palmistry', icon: Hand, color: 'emerald' },
-  ];
-
-  const languages = [
-    { code: 'en', name: 'English', flag: '🇬🇧' },
-    { code: 'mr', name: 'मराठी', flag: '🇮🇳' },
-    { code: 'hi', name: 'हिंदी', flag: '🇮🇳' },
-    { code: 'es', name: 'Español', flag: '🇪🇸' },
-    { code: 'fr', name: 'Français', flag: '🇫🇷' },
+    { name: 'Predictions', href: '/dashboard/predictions', icon: Zap, color: 'yellow' },
+    { name: 'Numerology', href: '/dashboard/numerology', icon: Calculator, color: 'purple' },
+    { name: 'Face Reading', href: '/dashboard/face-reading', icon: Scan, color: 'cyan' },
+    { name: 'Palmistry', href: '/dashboard/palmistry', icon: Hand, color: 'emerald' },
   ];
 
   const getColorClasses = (color: string, isActive: boolean) => {
     const colors: Record<string, { bg: string; text: string; hover: string }> = {
       violet: {
-        bg: isActive ? 'bg-violet-100 dark:bg-violet-900/30' : '',
-        text: isActive ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-violet-50 dark:hover:bg-violet-900/20 hover:text-violet-700 dark:hover:text-violet-300'
+        bg: isActive ? 'bg-violet-100' : '',
+        text: isActive ? 'text-violet-700' : 'text-gray-700',
+        hover: 'hover:bg-violet-50 hover:text-violet-700'
       },
       blue: {
-        bg: isActive ? 'bg-blue-100 dark:bg-blue-900/30' : '',
-        text: isActive ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300'
+        bg: isActive ? 'bg-blue-100' : '',
+        text: isActive ? 'text-blue-700' : 'text-gray-700',
+        hover: 'hover:bg-blue-50 hover:text-blue-700'
       },
       green: {
-        bg: isActive ? 'bg-green-100 dark:bg-green-900/30' : '',
-        text: isActive ? 'text-green-700 dark:text-green-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-green-50 dark:hover:bg-green-900/20 hover:text-green-700 dark:hover:text-green-300'
+        bg: isActive ? 'bg-green-100' : '',
+        text: isActive ? 'text-green-700' : 'text-gray-700',
+        hover: 'hover:bg-green-50 hover:text-green-700'
       },
       pink: {
-        bg: isActive ? 'bg-pink-100 dark:bg-pink-900/30' : '',
-        text: isActive ? 'text-pink-700 dark:text-pink-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-pink-50 dark:hover:bg-pink-900/20 hover:text-pink-700 dark:hover:text-pink-300'
+        bg: isActive ? 'bg-pink-100' : '',
+        text: isActive ? 'text-pink-700' : 'text-gray-700',
+        hover: 'hover:bg-pink-50 hover:text-pink-700'
       },
       orange: {
-        bg: isActive ? 'bg-orange-100 dark:bg-orange-900/30' : '',
-        text: isActive ? 'text-orange-700 dark:text-orange-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-700 dark:hover:text-orange-300'
+        bg: isActive ? 'bg-orange-100' : '',
+        text: isActive ? 'text-orange-700' : 'text-gray-700',
+        hover: 'hover:bg-orange-50 hover:text-orange-700'
       },
       yellow: {
-        bg: isActive ? 'bg-yellow-100 dark:bg-yellow-900/30' : '',
-        text: isActive ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-yellow-50 dark:hover:bg-yellow-900/20 hover:text-yellow-700 dark:hover:text-yellow-300'
+        bg: isActive ? 'bg-yellow-100' : '',
+        text: isActive ? 'text-yellow-700' : 'text-gray-700',
+        hover: 'hover:bg-yellow-50 hover:text-yellow-700'
       },
       purple: {
-        bg: isActive ? 'bg-purple-100 dark:bg-purple-900/30' : '',
-        text: isActive ? 'text-purple-700 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-700 dark:hover:text-purple-300'
+        bg: isActive ? 'bg-purple-100' : '',
+        text: isActive ? 'text-purple-700' : 'text-gray-700',
+        hover: 'hover:bg-purple-50 hover:text-purple-700'
       },
       cyan: {
-        bg: isActive ? 'bg-cyan-100 dark:bg-cyan-900/30' : '',
-        text: isActive ? 'text-cyan-700 dark:text-cyan-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-cyan-50 dark:hover:bg-cyan-900/20 hover:text-cyan-700 dark:hover:text-cyan-300'
+        bg: isActive ? 'bg-cyan-100' : '',
+        text: isActive ? 'text-cyan-700' : 'text-gray-700',
+        hover: 'hover:bg-cyan-50 hover:text-cyan-700'
       },
       emerald: {
-        bg: isActive ? 'bg-emerald-100 dark:bg-emerald-900/30' : '',
-        text: isActive ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-700 dark:hover:text-emerald-300'
+        bg: isActive ? 'bg-emerald-100' : '',
+        text: isActive ? 'text-emerald-700' : 'text-gray-700',
+        hover: 'hover:bg-emerald-50 hover:text-emerald-700'
       },
       indigo: {
-        bg: isActive ? 'bg-indigo-100 dark:bg-indigo-900/30' : '',
-        text: isActive ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300',
-        hover: 'hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-700 dark:hover:text-indigo-300'
+        bg: isActive ? 'bg-indigo-100' : '',
+        text: isActive ? 'text-indigo-700' : 'text-gray-700',
+        hover: 'hover:bg-indigo-50 hover:text-indigo-700'
       }
     };
     return colors[color] || colors.violet;
   };
 
   useEffect(() => {
-    if (!user) {
+    if (!isLoading && !user) {
       router.push('/auth/login');
     }
-  }, [user, router]);
+  }, [user, isLoading, router]);
 
-  if (!user) {
-    return null;
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-violet-500 border-t-transparent" />
+      </div>
+    );
   }
 
-  const handleLogout = () => {
-    logout();
-    router.push('/auth/login');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logged out successfully');
+      router.push('/auth/login');
+    } catch (error) {
+      toast.error('Logout failed');
+    }
   };
 
   return (
@@ -404,9 +398,9 @@ const DashboardContent = ({ children }: { children: React.ReactNode }) => {
               </button>
 
               {/* Credits Display */}
-              <div className="hidden xl:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20 border border-violet-200 dark:border-violet-800">
-                <CreditCard className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                <span className="text-sm font-bold text-violet-700 dark:text-violet-300">
+              <div className="hidden xl:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200">
+                <CreditCard className="w-4 h-4 text-violet-600" />
+                <span className="text-sm font-bold text-violet-700">
                   250 Credits
                 </span>
               </div>
@@ -426,11 +420,5 @@ const DashboardContent = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <DashboardContent>{children}</DashboardContent>
-      </LanguageProvider>
-    </ThemeProvider>
-  );
+  return <DashboardContent>{children}</DashboardContent>;
 }

@@ -15,12 +15,14 @@ from app.core.security import (
     create_access_token,
     create_refresh_token
 )
-from app.models.models import User
+from app.models.models import User, UserRole, Profile, TOBAccuracy, ChartSystem
 from app.schemas.schemas import (
     UserRegister,
     Token,
     UserResponse
 )
+from datetime import datetime
+import pytz
 
 router = APIRouter()
 
@@ -47,11 +49,28 @@ async def register(
     user = User(
         email=user_data.email,
         hashed_password=hashed_password,
-        full_name=user_data.full_name,
-        role="seeker"
+        role=UserRole.SEEKER  # Use enum which has lowercase value
     )
     
     db.add(user)
+    await db.flush()  # Get user.id before creating profile
+    
+    # Auto-create default profile for the user
+    # This enables chart generation immediately after registration
+    default_profile = Profile(
+        user_id=user.id,
+        name=user_data.full_name,
+        dob_ts_utc=datetime(1990, 1, 1, 12, 0, 0, tzinfo=pytz.UTC),  # Placeholder DOB
+        tob_accuracy=TOBAccuracy.UNKNOWN.value,
+        birthplace_text="Not Set",
+        latitude=0.0,  # Placeholder
+        longitude=0.0,  # Placeholder
+        timezone="UTC",
+        preferred_system=ChartSystem.VEDIC.value,
+        language="en"
+    )
+    
+    db.add(default_profile)
     await db.commit()
     await db.refresh(user)
     

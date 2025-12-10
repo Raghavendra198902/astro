@@ -11,7 +11,7 @@ import io
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.models import User, Chart, CompatibilityAnalysis
+from app.models.models import User, Chart, CompatibilityRequest
 from app.services.reports.generator import ReportGenerator
 
 router = APIRouter()
@@ -74,8 +74,8 @@ async def generate_compatibility_report(
 ):
     """Generate PDF compatibility report"""
     # Get analysis
-    stmt = select(CompatibilityAnalysis).where(
-        CompatibilityAnalysis.id == analysis_id
+    stmt = select(CompatibilityRequest).where(
+        CompatibilityRequest.id == analysis_id
     )
     result = await db.execute(stmt)
     analysis = result.scalars().first()

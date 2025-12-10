@@ -1,0 +1,108 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Check version consistency
+        run: |
+          echo "Checking version consistency across files..."
+          
+          # Read versions from different files
+          VERSION_FILE=$(cat VERSION)
+          BACKEND_VERSION=$(python3 -c "import sys; sys.path.insert(0, 'backend'); from app.__version__ import __version__; print(__version__)")
+          FRONTEND_VERSION=$(grep -oP '"version":\s*"\K[^"]+' frontend/package.json | head -1)
+          JSON_VERSION=$(grep -oP '"version":\s*"\K[^"]+' .version.json | head -1)
+          
+          echo "VERSION file: $VERSION_FILE"
+          echo "Backend __version__.py: $BACKEND_VERSION"
+          echo "Frontend package.json: $FRONTEND_VERSION"
+          echo ".version.json: $JSON_VERSION"
+          
+          # Check if all versions match
+          if [ "$VERSION_FILE" = "$BACKEND_VERSION" ] && \
+             [ "$VERSION_FILE" = "$FRONTEND_VERSION" ] && \
+             [ "$VERSION_FILE" = "$JSON_VERSION" ]; then
+            echo "✓ All versions are consistent: $VERSION_FILE"
+          else
+            echo "✗ Version mismatch detected!"
+            exit 1
+          fi
+      
+      - name: Validate version format
+        run: |
+          VERSION=$(cat VERSION)
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "✗ Invalid version format: $VERSION"
+            echo "Version must be MAJOR.MINOR.PATCH (e.g., 2.0.0)"
+            exit 1
+          fi
+          echo "✓ Version format is valid: $VERSION"
+      
+      - name: Check CHANGELOG update
+        if: github.event_name == 'pull_request'
+        run: |
+          VERSION=$(cat VERSION)
+          if ! grep -q "\[$VERSION\]" CHANGELOG.md; then
+            echo "⚠ Warning: CHANGELOG.md may not be updated for version $VERSION"
+            echo "Please ensure CHANGELOG.md includes changes for this version"
+          else
+            echo "✓ CHANGELOG.md contains entry for version $VERSION"
+          fi
+
+  create-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: version-check
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(cat VERSION)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Astor AI ${{ steps.version.outputs.version }}
+            
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+          draft: false
+          prerelease: false

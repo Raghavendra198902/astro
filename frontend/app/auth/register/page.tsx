@@ -8,19 +8,18 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { authApi, RegisterRequest } from '@/lib/api/auth';
-import { useAuthStore } from '@/lib/stores/auth.store';
-import { handleApiError } from '@/lib/api/client';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number'),
   confirmPassword: z.string(),
-  full_name: z.string().min(2, 'Name must be at least 2 characters'),
-  date_of_birth: z.string().min(1, 'Date of birth is required'),
-  time_of_birth: z.string().min(1, 'Time of birth is required'),
-  place_of_birth: z.string().min(2, 'Place of birth is required'),
-  timezone: z.string().default('UTC'),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -30,7 +29,7 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const { register: registerUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,22 +40,18 @@ export default function RegisterPage() {
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      timezone: 'UTC',
-    },
   });
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
       const { confirmPassword, ...registerData } = data;
-      const response = await authApi.register(registerData);
-      setUser(response.user);
+      await registerUser(registerData);
       toast.success('Account created successfully!');
       router.push('/dashboard');
     } catch (error) {
-      const apiError = handleApiError(error);
-      toast.error(apiError.message);
+      const apiError = error as any;
+      toast.error(apiError.detail || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -76,19 +71,19 @@ export default function RegisterPage() {
           {/* Name & Email Row */}
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-slate-700 mb-2">
+              <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-2">
                 Full Name
               </label>
               <input
-                {...register('full_name')}
-                id="full_name"
+                {...register('name')}
+                id="name"
                 type="text"
                 autoComplete="name"
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                 placeholder="John Doe"
               />
-              {errors.full_name && (
-                <p className="mt-1 text-sm text-red-600">{errors.full_name.message}</p>
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
               )}
             </div>
 
@@ -165,91 +160,14 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Birth Details Section */}
-          <div className="pt-4 border-t border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">Birth Information</h3>
-            <p className="text-sm text-slate-600 mb-4">
-              Required for accurate chart calculations
-            </p>
-
-            <div className="space-y-4">
-              {/* Date & Time Row */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="date_of_birth" className="block text-sm font-medium text-slate-700 mb-2">
-                    Date of Birth
-                  </label>
-                  <input
-                    {...register('date_of_birth')}
-                    id="date_of_birth"
-                    type="date"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  />
-                  {errors.date_of_birth && (
-                    <p className="mt-1 text-sm text-red-600">{errors.date_of_birth.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="time_of_birth" className="block text-sm font-medium text-slate-700 mb-2">
-                    Time of Birth
-                  </label>
-                  <input
-                    {...register('time_of_birth')}
-                    id="time_of_birth"
-                    type="time"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  />
-                  {errors.time_of_birth && (
-                    <p className="mt-1 text-sm text-red-600">{errors.time_of_birth.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Place & Timezone Row */}
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="place_of_birth" className="block text-sm font-medium text-slate-700 mb-2">
-                    Place of Birth
-                  </label>
-                  <input
-                    {...register('place_of_birth')}
-                    id="place_of_birth"
-                    type="text"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    placeholder="City, Country"
-                  />
-                  {errors.place_of_birth && (
-                    <p className="mt-1 text-sm text-red-600">{errors.place_of_birth.message}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="timezone" className="block text-sm font-medium text-slate-700 mb-2">
-                    Timezone
-                  </label>
-                  <select
-                    {...register('timezone')}
-                    id="timezone"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                  >
-                    <option value="UTC">UTC</option>
-                    <option value="America/New_York">Eastern (US)</option>
-                    <option value="America/Chicago">Central (US)</option>
-                    <option value="America/Denver">Mountain (US)</option>
-                    <option value="America/Los_Angeles">Pacific (US)</option>
-                    <option value="Europe/London">London</option>
-                    <option value="Europe/Paris">Paris</option>
-                    <option value="Asia/Kolkata">India</option>
-                    <option value="Asia/Tokyo">Tokyo</option>
-                    <option value="Australia/Sydney">Sydney</option>
-                  </select>
-                  {errors.timezone && (
-                    <p className="mt-1 text-sm text-red-600">{errors.timezone.message}</p>
-                  )}
-                </div>
-              </div>
-            </div>
+          {/* Password Requirements */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-slate-700 mb-2">Password Requirements:</p>
+            <ul className="text-sm text-slate-600 space-y-1 list-disc list-inside">
+              <li>At least 8 characters long</li>
+              <li>Contains uppercase and lowercase letters</li>
+              <li>Contains at least one number</li>
+            </ul>
           </div>
 
           {/* Submit Button */}

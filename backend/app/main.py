@@ -15,6 +15,7 @@ from app.core.config import get_settings
 from app.core.logging_config import setup_logging
 from app.core.database import engine
 from app.api.v1.api import api_router
+from app.__version__ import __version__, get_version_info
 
 settings = get_settings()
 
@@ -34,7 +35,7 @@ async def lifespan(app: FastAPI):
     # Initialize Redis connection
     try:
         from app.core.redis_client import redis_client
-        await redis_client.ping()
+        await redis_client.connect()
         logger.info("✓ Redis connection established")
     except Exception as e:
         logger.error(f"✗ Redis connection failed: {e}")
@@ -91,7 +92,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Astor AI - Astrology & Numerology Platform",
     description="AI-driven astrology system with Vedic/Western chart generation, interpretations, and compatibility analysis",
-    version="1.0.0",
+    version=__version__,
     docs_url="/docs" if settings.DEBUG else None,
     redoc_url="/redoc" if settings.DEBUG else None,
     lifespan=lifespan,
@@ -146,6 +147,30 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
+
+
+# Version & Info Endpoints
+# -------------------------
+
+@app.get("/", tags=["Info"])
+async def root():
+    """Root endpoint with API information"""
+    version_info = get_version_info()
+    return {
+        "name": "Astor AI",
+        "description": "AI-driven astrology & numerology platform",
+        "version": version_info["version"],
+        "release": version_info["release_name"],
+        "api_version": version_info["api_version"],
+        "docs": "/docs" if settings.DEBUG else None,
+        "status": "operational",
+    }
+
+
+@app.get("/api/v1/version", tags=["Info"])
+async def get_version():
+    """Get detailed version information"""
+    return get_version_info()
 
 
 # Test Numerology Endpoint (No Auth Required)
@@ -649,6 +674,12 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/v1/healthz", tags=["Health"])
+async def health_check_v1():
+    """Health check endpoint for Docker - v1 API path"""
+    return {"status": "ok", "version": "v1"}
+
+
 @app.get("/readyz", tags=["Health"])
 async def readiness_check():
     """Readiness check endpoint - checks all critical dependencies"""
@@ -671,8 +702,12 @@ async def readiness_check():
     
     # Check Redis
     try:
-        await redis_client.ping()
-        checks["redis"] = "ok"
+        if redis_client.redis:
+            await redis_client.redis.ping()
+            checks["redis"] = "ok"
+        else:
+            checks["redis"] = "not connected"
+            all_healthy = False
     except Exception as e:
         checks["redis"] = f"error: {str(e)}"
         all_healthy = False

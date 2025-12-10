@@ -44,6 +44,7 @@ class AyanamshaEnum(str, Enum):
 class UserRegister(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
+    full_name: str = Field(..., min_length=2, max_length=255)
     role: UserRoleEnum = UserRoleEnum.SEEKER
     
     @field_validator("password")
@@ -133,7 +134,7 @@ class ChartOptions(BaseModel):
 
 
 class ChartCreate(BaseModel):
-    profile_id: UUID
+    profile_id: Optional[UUID] = None  # If None, uses user's first profile
     system: ChartSystemEnum = ChartSystemEnum.VEDIC
     options: Optional[ChartOptions] = None
 
@@ -194,7 +195,7 @@ class CompatibilityResponse(BaseModel):
 # Numerology Schemas
 
 class NumerologyRequest(BaseModel):
-    profile_id: UUID
+    profile_id: Optional[UUID] = None  # If None, uses user's first profile
     full_name: str
     system: str = Field(default="pythagorean", pattern="^(pythagorean|chaldean)$")
 
@@ -203,8 +204,11 @@ class NumerologyResponse(BaseModel):
     id: UUID
     profile_id: UUID
     system: str
-    result: Dict[str, Any]
+    json_result: Dict[str, Any]
     created_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 
 # Report Schemas
@@ -282,8 +286,8 @@ class TransitWatchRequest(BaseModel):
 
 
 class BiometricReadingResponse(BaseModel):
-    id: int
-    user_id: int
+    id: UUID
+    user_id: UUID
     reading_type: str
     analysis_data: Dict[str, Any]
     created_at: datetime

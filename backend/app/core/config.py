@@ -91,10 +91,15 @@ class Settings(BaseSettings):
     TIMEZONE_DATABASE_PATH: str = "/app/data/timezones.db"
     
     # Payments
+    PAYMENT_PROVIDER: str = "stripe"  # stripe or razorpay
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_PRO_PRICE_ID: str = "price_test_pro"  # Stripe price ID for Pro plan
+    STRIPE_ASTROLOGER_PRICE_ID: str = "price_test_astrologer"  # Stripe price ID for Astrologer plan
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_PRO_PLAN_ID: str = "plan_test_pro"  # Razorpay plan ID for Pro
+    RAZORPAY_ASTROLOGER_PLAN_ID: str = "plan_test_astrologer"  # Razorpay plan ID for Astrologer
     PAYMENT_CURRENCY: str = "INR"
     ENABLE_GST: bool = True
     GST_RATE: float = 18.0
@@ -155,7 +160,7 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     LOG_FORMAT: Literal["json", "plain"] = "json"
-    LOG_FILE_PATH: str = "/var/log/astor-ai/app.log"
+    LOG_FILE_PATH: str = "/app/logs/app.log"
     
     # Sentry
     SENTRY_DSN: str = ""

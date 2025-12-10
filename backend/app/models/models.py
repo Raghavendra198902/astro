@@ -24,13 +24,13 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
 
 
-class TOBAccuracy(str, enum.Enum):
+class TOBAccuracy(enum.Enum):
     EXACT = "exact"
     APPROXIMATE = "approximate"
     UNKNOWN = "unknown"
 
 
-class ChartSystem(str, enum.Enum):
+class ChartSystem(enum.Enum):
     VEDIC = "vedic"
     WESTERN = "western"
 
@@ -70,7 +70,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), default=UserRole.SEEKER, nullable=False)
+    role = Column(Enum(UserRole, values_callable=lambda x: [e.value for e in x]), default=UserRole.SEEKER, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -79,6 +79,8 @@ class User(Base):
     # Relationships
     profiles = relationship("Profile", back_populates="user", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="user")
+    subscriptions = relationship("Subscription", back_populates="user")
+    transactions = relationship("Transaction", back_populates="user")
     
     __table_args__ = (
         Index("idx_users_email", "email"),
@@ -94,12 +96,12 @@ class Profile(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     dob_ts_utc = Column(DateTime(timezone=True), nullable=False)
-    tob_accuracy = Column(Enum(TOBAccuracy), default=TOBAccuracy.APPROXIMATE, nullable=False)
+    tob_accuracy = Column(Enum(TOBAccuracy, name="tob_accuracy", values_callable=lambda x: [e.value for e in x]), default=TOBAccuracy.APPROXIMATE, nullable=False)
     birthplace_text = Column(String(500), nullable=False)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     timezone = Column(String(100), nullable=False)
-    preferred_system = Column(Enum(ChartSystem), default=ChartSystem.VEDIC, nullable=False)
+    preferred_system = Column(Enum(ChartSystem, name="chart_system", values_callable=lambda x: [e.value for e in x]), default=ChartSystem.VEDIC, nullable=False)
     language = Column(String(10), default="en", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -122,7 +124,7 @@ class Chart(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     profile_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False)
-    system = Column(Enum(ChartSystem), nullable=False)
+    system = Column(Enum(ChartSystem, name="chart_system", values_callable=lambda x: [e.value for e in x]), nullable=False)
     json_payload = Column(JSONB, nullable=False)
     hash_key = Column(String(64), unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -177,7 +179,7 @@ class CompatibilityRequest(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chart_a_id = Column(UUID(as_uuid=True), ForeignKey("charts.id", ondelete="CASCADE"), nullable=False)
     chart_b_id = Column(UUID(as_uuid=True), ForeignKey("charts.id", ondelete="CASCADE"), nullable=False)
-    system = Column(Enum(ChartSystem), nullable=False)
+    system = Column(Enum(ChartSystem, name="chart_system"), nullable=False)
     raw_json = Column(JSONB, nullable=False)
     guna_score = Column(Integer, nullable=True)
     synastry_score = Column(Float, nullable=True)
@@ -265,6 +267,69 @@ class Payment(Base):
         Index("idx_payments_user_id", "user_id"),
         Index("idx_payments_status", "status"),
         Index("idx_payments_txn_ref", "txn_ref"),
+    )
+
+
+class Subscription(Base):
+    """User subscriptions"""
+    __tablename__ = "subscriptions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    plan = Column(Enum(PlanType), nullable=False)
+    status = Column(String(20), default="active", nullable=False)
+    provider = Column(String(50), nullable=False)
+    provider_subscription_id = Column(String(255), nullable=True)
+    current_period_start = Column(DateTime(timezone=True), nullable=False)
+    current_period_end = Column(DateTime(timezone=True), nullable=False)
+    cancel_at_period_end = Column(Boolean, default=False, nullable=False)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    trial_start = Column(DateTime(timezone=True), nullable=True)
+    trial_end = Column(DateTime(timezone=True), nullable=True)
+    subscription_metadata = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="subscriptions")
+    
+    __table_args__ = (
+        Index("idx_subscriptions_user_id", "user_id"),
+        Index("idx_subscriptions_status", "status"),
+        Index("idx_subscriptions_current_period_end", "current_period_end"),
+        CheckConstraint("status IN ('active', 'cancelled', 'past_due', 'trialing', 'incomplete')", name="check_subscription_status"),
+    )
+
+
+class Transaction(Base):
+    """Payment transactions for detailed tracking"""
+    __tablename__ = "transactions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True)
+    amount = Column(Integer, nullable=False)
+    currency = Column(String(10), default="INR", nullable=False)
+    status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
+    provider = Column(String(50), nullable=False)
+    provider_transaction_id = Column(String(255), nullable=True)
+    transaction_type = Column(String(50), default="charge", nullable=False)
+    description = Column(Text, nullable=True)
+    failure_reason = Column(Text, nullable=True)
+    transaction_metadata = Column(JSONB, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="transactions")
+    subscription = relationship("Subscription")
+    
+    __table_args__ = (
+        Index("idx_transactions_user_id", "user_id"),
+        Index("idx_transactions_subscription_id", "subscription_id"),
+        Index("idx_transactions_status", "status"),
+        Index("idx_transactions_created_at", "created_at"),
+        CheckConstraint("transaction_type IN ('charge', 'refund', 'adjustment')", name="check_transaction_type"),
     )
 
 
@@ -477,4 +542,26 @@ class PredictionHistory(Base):
         Index("idx_prediction_history_profile", "profile_id"),
         Index("idx_prediction_history_created", "created_at"),
         Index("idx_prediction_history_cache_key", "cache_key"),
+    )
+
+
+class BiometricReading(Base):
+    """Face and palm reading biometric analysis"""
+    __tablename__ = "biometric_readings"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    reading_type = Column(String(50), nullable=False)  # face|palm
+    analysis_data = Column(JSONB, nullable=False)
+    user_consent = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True), nullable=False)  # Data retention policy
+    
+    # Relationships
+    user = relationship("User")
+    
+    __table_args__ = (
+        Index("idx_biometric_readings_user", "user_id"),
+        Index("idx_biometric_readings_type", "reading_type"),
+        Index("idx_biometric_readings_expires", "expires_at"),
     )

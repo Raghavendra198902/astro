@@ -34,12 +34,14 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     libpq5 \
     curl \
-    libcairo2 \
+    libglib2.0-0 \
+    libglib2.0-dev \
+    libgirepository-1.0-1 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
+    libcairo2 \
+    libgl1 \
     libgdk-pixbuf-2.0-0 \
-    libffi7 \
-    shared-mime-info \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -70,7 +72,7 @@ EXPOSE 8000
 
 # Health check with better defaults
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/api/v1/healthz || exit 1
+    CMD curl -f http://localhost:8000/healthz || exit 1
 
 # Resource limits (can be overridden in docker-compose)
 ENV PYTHONUNBUFFERED=1 \
@@ -79,7 +81,4 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Default command
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-# Run application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

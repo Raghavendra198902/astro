@@ -8,9 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2, Sparkles, User, ArrowRight, Shield, Mail, Lock } from 'lucide-react';
-import { authApi, LoginRequest } from '@/lib/api/auth';
-import { useAuthStore } from '@/lib/stores/auth.store';
-import { handleApiError } from '@/lib/api/client';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -42,7 +40,7 @@ const DEMO_ACCOUNTS = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setUser } = useAuthStore();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -63,41 +61,12 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      // Demo mode: Check if using demo credentials
-      const isDemoAccount = 
-        (data.email === 'seeker@demo.com' && data.password === 'demo1234') ||
-        (data.email === 'astrologer@demo.com' && data.password === 'demo1234');
-
-      if (isDemoAccount) {
-        // Create demo user with proper User type
-        const demoUser = {
-          id: data.email === 'seeker@demo.com' ? 1 : 2,
-          email: data.email,
-          full_name: data.email === 'seeker@demo.com' ? 'Demo Seeker' : 'Demo Astrologer',
-          role: data.email === 'seeker@demo.com' ? 'seeker' as const : 'astrologer' as const,
-          subscription_tier: data.email === 'seeker@demo.com' ? 'free' as const : 'astrologer' as const,
-          is_active: true,
-          is_verified: true,
-          created_at: new Date().toISOString(),
-        };
-        
-        // Set demo token in localStorage so API calls work
-        localStorage.setItem('astor_access_token', 'demo_token');
-        localStorage.setItem('astor_refresh_token', 'demo_refresh_token');
-        
-        setUser(demoUser);
-        toast.success('Welcome to Demo Mode! 🎉');
-        router.push('/dashboard');
-      } else {
-        // Try real backend login
-        const response = await authApi.login(data as LoginRequest);
-        setUser(response.user);
-        toast.success('Welcome back!');
-        router.push('/dashboard');
-      }
+      await login({ username: data.email, password: data.password });
+      toast.success('Welcome back!');
+      router.push('/dashboard');
     } catch (error) {
-      handleApiError(error);
-      toast.error('Login failed. Try demo accounts: seeker@demo.com or astrologer@demo.com (password: demo1234)');
+      const apiError = error as any;
+      toast.error(apiError.detail || 'Login failed. Please check your credentials.');
     } finally {
       setIsLoading(false);
     }
