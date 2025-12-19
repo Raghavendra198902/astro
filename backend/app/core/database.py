@@ -2,7 +2,7 @@
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, StaticPool
 import logging
 
 from app.core.config import settings
@@ -12,14 +12,26 @@ logger = logging.getLogger(__name__)
 # Convert sync PostgreSQL URL to async
 DATABASE_URL = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-# Create async engine
-engine = create_async_engine(
-    DATABASE_URL,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    pool_pre_ping=True,
-    echo=settings.DEBUG,
-)
+# Create async engine with appropriate pooling for database type
+is_sqlite = DATABASE_URL.startswith("sqlite")
+
+if is_sqlite:
+    # SQLite doesn't support pool_size/max_overflow
+    engine = create_async_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=settings.DEBUG,
+    )
+else:
+    # PostgreSQL with connection pooling
+    engine = create_async_engine(
+        DATABASE_URL,
+        pool_size=settings.DATABASE_POOL_SIZE,
+        max_overflow=settings.DATABASE_MAX_OVERFLOW,
+        pool_pre_ping=True,
+        echo=settings.DEBUG,
+    )
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(

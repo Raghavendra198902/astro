@@ -1,0 +1,292 @@
+"""
+Pytest configuration and fixtures for ASTOR AI tests
+"""
+
+import pytest
+import asyncio
+from typing import AsyncGenerator, Generator
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.pool import NullPool
+from httpx import AsyncClient
+import fakeredis.aioredis
+from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timezone
+
+from app.main import app
+from app.core.database import Base, get_db
+from app.core.config import Settings, get_settings
+from app.models.models import User, Profile, UserRole
+from app.core.security import hash_password
+
+
+# Test database URL (use in-memory SQLite for speed)
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+@pytest.fixture(scope="session")
+def event_loop() -> Generator:
+    """Create an instance of the default event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="session")
+def test_settings() -> Settings:
+    """Override settings for testing"""
+    return Settings(
+        ENVIRONMENT="testing",
+        DEBUG=True,
+        DATABASE_URL=TEST_DATABASE_URL,
+        REDIS_URL="redis://localhost:6379/15",
+        RABBITMQ_URL="amqp://guest:guest@localhost:5672/test",
+        SECRET_KEY="test-secret-key-for-testing-only-32-chars-long",
+        JWT_ALGORITHM="HS256",
+        ACCESS_TOKEN_EXPIRE_MINUTES=30,
+        LLM_PROVIDER="openai",
+        LLM_API_KEY="test-api-key",
+        LLM_MODEL="gpt-4-turbo-preview",
+        ENABLE_RAG=False,  # Disable RAG for tests
+        EPHEMERIS_PATH="/app/ephemeris/data",
+        CORS_ORIGINS=["*"],
+        STRIPE_SECRET_KEY="sk_test_fake_key",
+        RAZORPAY_KEY_ID="rzp_test_fake",
+    )
+
+
+@pytest.fixture(scope="function")
+async def db_engine(test_settings):
+    """Create test database engine"""
+    engine = create_async_engine(
+        test_settings.DATABASE_URL,
+        poolclass=NullPool,
+        echo=False,
+    )
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    
+    yield engine
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    
+    await engine.dispose()
+
+
+@pytest.fixture(scope="function")
+async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
+    """Create test database session"""
+    async_session_maker = async_sessionmaker(
+        db_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    
+    async with async_session_maker() as session:
+        yield session
+        await session.rollback()
+
+
+@pytest.fixture(scope="function")
+async def client(db_session: AsyncSession, test_settings: Settings) -> AsyncGenerator[AsyncClient, None]:
+    """Create test HTTP client"""
+    
+    async def override_get_db():
+        yield db_session
+    
+    def override_get_settings():
+        return test_settings
+    
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_settings] = override_get_settings
+    
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        yield ac
+    
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+async def redis_client():
+    """Create fake Redis client for testing"""
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    yield fake_redis
+    await fake_redis.flushall()
+    await fake_redis.close()
+
+
+@pytest.fixture
+async def test_user(db_session: AsyncSession) -> User:
+    """Create test user"""
+    user = User(
+        email="testuser@example.com",
+        hashed_password=hash_password("testpassword123"),
+        role=UserRole.SEEKER,
+        is_active=True,
+        is_verified=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+async def test_astrologer(db_session: AsyncSession) -> User:
+    """Create test astrologer user"""
+    user = User(
+        email="astrologer@example.com",
+        hashed_password=hash_password("astrologer123"),
+        role=UserRole.ASTROLOGER,
+        is_active=True,
+        is_verified=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+async def test_admin(db_session: AsyncSession) -> User:
+    """Create test admin user"""
+    user = User(
+        email="admin@example.com",
+        hashed_password=hash_password("admin123"),
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_verified=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest.fixture
+async def test_profile(db_session: AsyncSession, test_user: User) -> Profile:
+    """Create test profile"""
+    profile = Profile(
+        user_id=test_user.id,
+        name="Test User",
+        dob_ts_utc=datetime(1990, 1, 15, 10, 30, tzinfo=timezone.utc),
+        birthplace_text="New York, NY, USA",
+        birthplace_lat=40.7128,
+        birthplace_lon=-74.0060,
+        birthplace_tz="America/New_York",
+    )
+    db_session.add(profile)
+    await db_session.commit()
+    await db_session.refresh(profile)
+    return profile
+
+
+@pytest.fixture
+def mock_llm_client():
+    """Mock LLM client"""
+    mock = AsyncMock()
+    mock.generate.return_value = {
+        "interpretation": "This is a test interpretation.",
+        "confidence": 0.85,
+        "tokens_used": 150,
+        "cost": 0.002,
+    }
+    return mock
+
+
+@pytest.fixture
+def mock_ephemeris():
+    """Mock Swiss Ephemeris calculations"""
+    mock = MagicMock()
+    mock.calc.return_value = (120.5, 1.2)  # longitude, latitude
+    return mock
+
+
+@pytest.fixture
+def sample_birth_data():
+    """Sample birth data for testing"""
+    return {
+        "date": "1990-01-15",
+        "time": "10:30:00",
+        "latitude": 40.7128,
+        "longitude": -74.0060,
+        "timezone": "America/New_York",
+    }
+
+
+@pytest.fixture
+def sample_chart_data():
+    """Sample chart calculation result"""
+    return {
+        "planets": {
+            "sun": {"longitude": 294.5, "sign": "Capricorn", "house": 10},
+            "moon": {"longitude": 120.3, "sign": "Cancer", "house": 4},
+            "mars": {"longitude": 45.7, "sign": "Taurus", "house": 2},
+        },
+        "houses": {
+            "1": {"cusp": 0.0, "sign": "Aries"},
+            "10": {"cusp": 270.0, "sign": "Capricorn"},
+        },
+        "aspects": [
+            {
+                "planet1": "sun",
+                "planet2": "moon",
+                "aspect": "trine",
+                "orb": 2.3,
+                "applying": True,
+            }
+        ],
+    }
+
+
+@pytest.fixture
+def auth_headers(test_user: User):
+    """Generate authentication headers"""
+    from app.core.security import create_access_token
+    
+    token = create_access_token(
+        data={"sub": str(test_user.id), "role": test_user.role.value}
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def astrologer_auth_headers(test_astrologer: User):
+    """Generate astrologer authentication headers"""
+    from app.core.security import create_access_token
+    
+    token = create_access_token(
+        data={"sub": str(test_astrologer.id), "role": test_astrologer.role.value}
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def admin_auth_headers(test_admin: User):
+    """Generate admin authentication headers"""
+    from app.core.security import create_access_token
+    
+    token = create_access_token(
+        data={"sub": str(test_admin.id), "role": test_admin.role.value}
+    )
+    return {"Authorization": f"Bearer {token}"}
+
+
+# Utility functions for tests
+
+def assert_valid_uuid(value: str):
+    """Assert that a string is a valid UUID"""
+    import uuid
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        pytest.fail(f"Invalid UUID: {value}")
+
+
+def assert_datetime_close(dt1: datetime, dt2: datetime, tolerance_seconds: int = 5):
+    """Assert that two datetimes are close within tolerance"""
+    diff = abs((dt1 - dt2).total_seconds())
+    assert diff <= tolerance_seconds, f"Datetimes differ by {diff} seconds"

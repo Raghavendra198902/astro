@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASTOR AI - Complete Test Results Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 50px;
+            text-align: center;
+        }
+        
+        .header h1 { font-size: 4em; margin-bottom: 15px; animation: fadeIn 1s; }
+        .header p { font-size: 1.6em; opacity: 0.95; }
+        .timestamp { font-size: 1.1em; margin-top: 15px; opacity: 0.85; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .success-banner {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 35px;
+            text-align: center;
+            font-size: 2.2em;
+            font-weight: bold;
+            animation: slideIn 0.5s;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
+        }
+        
+        .warning-banner {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+            font-size: 1.4em;
+            font-weight: 600;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 25px;
+            padding: 50px;
+            background: #f8fafc;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .stat-card:hover { 
+            transform: translateY(-10px) scale(1.02); 
+            box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+        }
+        
+        .stat-value { 
+            font-size: 4em; 
+            font-weight: bold; 
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-label { 
+            color: #64748b; 
+            font-size: 1.2em; 
+            text-transform: uppercase; 
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+        
+        .stat-card.passed .stat-value { 
+            background: linear-gradient(135deg, #10b981, #059669);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-card.failed .stat-value { 
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-card.coverage::before { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
+        .stat-card.time::before { background: linear-gradient(90deg, #3b82f6, #2563eb); }
+        
+        .content { padding: 50px; }
+        
+        .section {
+            margin-bottom: 60px;
+            animation: fadeInUp 0.6s;
+        }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section h2 {
+            color: #1e293b;
+            font-size: 3em;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 5px solid #667eea;
+            position: relative;
+        }
+        
+        .section h2::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100px;
+            height: 5px;
+            background: #764ba2;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 30px;
+        }
+        
+        .test-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            padding: 35px;
+            border-radius: 15px;
+            border-left: 6px solid #10b981;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+        
+        .test-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+        
+        .test-card.failed { border-left-color: #ef4444; }
+        
+        .test-card h3 {
+            color: #1e293b;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .test-card .icon {
+            font-size: 1.3em;
+        }
+        
+        .test-stats {
+            display: flex;
+            gap: 25px;
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+        }
+        
+        .test-stat {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .test-stat .num {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #10b981;
+        }
+        
+        .test-stat.fail .num { color: #ef4444; }
+        
+        .test-stat .label {
+            color: #64748b;
+            font-size: 0.95em;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .test-list {
+            list-style: none;
+            margin-top: 20px;
+        }
+        
+        .test-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .test-item:hover {
+            background: #f8fafc;
+            transform: translateX(8px);
+            border-left-color: #667eea;
+        }
+        
+        .test-item .name {
+            color: #334155;
+            font-weight: 500;
+            flex-grow: 1;
+        }
+        
+        .badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge.pass {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+        }
+        
+        .badge.fail {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
+        }
+        
+        .issue-card {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-left: 6px solid #f59e0b;
+            padding: 35px;
+            border-radius: 15px;
+            margin: 30px 0;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+        }
+        
+        .issue-card h3 {
+            color: #92400e;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .issue {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .issue-title {
+            font-weight: 700;
+            color: #78350f;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .issue-detail {
+            color: #92400e;
+            line-height: 1.8;
+        }
+        
+        .issue-detail strong {
+            color: #78350f;
+        }
+        
+        .coverage-section {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            color: white;
+            padding: 60px;
+            border-radius: 20px;
+            margin: 40px 0;
+        }
+        
+        .coverage-section h2 {
+            color: white;
+            border-bottom-color: rgba(255,255,255,0.3);
+        }
+        
+        .coverage-section h2::after {
+            background: rgba(255,255,255,0.5);
+        }
+        
+        .coverage-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .coverage-item {
+            background: rgba(255,255,255,0.15);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .coverage-item:hover {
+            background: rgba(255,255,255,0.25);
+            transform: scale(1.05);
+        }
+        
+        .coverage-percentage {
+            font-size: 3.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .coverage-label {
+            font-size: 1.2em;
+            opacity: 0.95;
+        }
+        
+        .links-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 50px;
+        }
+        
+        .link-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            border-top: 5px solid #667eea;
+        }
+        
+        .link-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        
+        .link-card h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .link-card p {
+            color: #64748b;
+            margin-bottom: 30px;
+            line-height: 1.8;
+            font-size: 1.05em;
+        }
+        
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 40px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            font-size: 1.15em;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        
+        .btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+        }
+        
+        .footer {
+            background: #1e293b;
+            color: white;
+            padding: 50px;
+            text-align: center;
+        }
+        
+        .footer p {
+            margin: 10px 0;
+            opacity: 0.9;
+            font-size: 1.05em;
+        }
+        
+        .footer .highlight {
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 ASTOR AI</h1>
+            <p>Complete Test Results Dashboard</p>
+            <p class="timestamp">Test Execution: December 20, 2025 | 0.82 seconds</p>
+        </div>
+        
+        <div class="success-banner">
+            ✅ 118 Tests Passed | ⚠️ 1 Test Failed | 99.2% Success Rate
+        </div>
+        
+        <div class="warning-banner">
+            1 Known Issue: Email validation allows spaces in addresses
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card passed">
+                <div class="stat-value">118</div>
+                <div class="stat-label">Tests Passed</div>
+            </div>
+            <div class="stat-card failed">
+                <div class="stat-value">1</div>
+                <div class="stat-label">Tests Failed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">119</div>
+                <div class="stat-label">Total Tests</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">99.2%</div>
+                <div class="stat-label">Pass Rate</div>
+            </div>
+            <div class="stat-card coverage">
+                <div class="stat-value">100%</div>
+                <div class="stat-label">Coverage</div>
+            </div>
+            <div class="stat-card time">
+                <div class="stat-value">0.82s</div>
+                <div class="stat-label">Execution</div>
+            </div>
+        </div>
+        
+        <div class="content">
+            <div class="section">
+                <h2>📊 Test Results by Category</h2>
+                <div class="test-grid">
+                    <div class="test-card">
+                        <h3><span class="icon">🎂</span> Age Calculation</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">8</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">0</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">Various scenarios (6 tests)</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Boundary conditions</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Error handling</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="test-card failed">
+                        <h3><span class="icon">📧</span> Email Validation</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">12</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">1</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">Valid email formats</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Invalid email formats</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Email with spaces</span>
+                                <span class="badge fail">✗ FAIL</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="icon">📱</span> Phone Formatting</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">6</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">0</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">Various input formats (5 tests)</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Error cases</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="icon">🔢</span> Numerology</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">10</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">0</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">Life path ranges (4 tests)</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Known values (4 tests)</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Consistency check</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="icon">♈</span> Zodiac Signs</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">50</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">0</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">All 12 signs (48 tests)</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Boundary dates</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Invalid inputs</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="icon">💑</span> Compatibility</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">23</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">0</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">Same sign compatibility</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Element compatibility (20 tests)</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Score validation</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="issue-card">
+                <h3>⚠️ Known Issues (1)</h3>
+                <div class="issue">
+                    <div class="issue-title">Email Validation: Spaces in Email Addresses</div>
+                    <div class="issue-detail">
+                        <strong>Test:</strong> test_email_validation_comprehensive[spaces in@email.com-False]<br>
+                        <strong>Location:</strong> tests/test_regression_suite.py:69<br>
+                        <strong>Expected:</strong> is_valid_email('spaces in@email.com') should return False<br>
+                        <strong>Actual:</strong> Function returned True<br>
+                        <strong>Impact:</strong> Low - Edge case that needs improved validation<br>
+                        <strong>Recommendation:</strong> Update email regex to explicitly reject space characters<br>
+                        <strong>Fix:</strong> Add \s check in app/utils/astro_utils.py is_valid_email() function
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>🔄 Integration & Performance Tests</h2>
+                <div class="test-grid">
+                    <div class="test-card">
+                        <h3><span class="icon">🔗</span> Integration Tests</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">5</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">0</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">Full user profile</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Contact validation</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Couple compatibility</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Multiple profiles (2 tests)</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="icon">⚡</span> Performance Tests</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">2</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">0</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">Zodiac calculation &lt;1.0s</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Compatibility &lt;0.5s</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="test-card">
+                        <h3><span class="icon">📚</span> Data Integrity</h3>
+                        <div class="test-stats">
+                            <div class="test-stat">
+                                <div class="num">3</div>
+                                <div class="label">Passed</div>
+                            </div>
+                            <div class="test-stat fail">
+                                <div class="num">0</div>
+                                <div class="label">Failed</div>
+                            </div>
+                        </div>
+                        <ul class="test-list">
+                            <li class="test-item">
+                                <span class="name">All zodiac signs covered</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">No duplicate dates</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                            <li class="test-item">
+                                <span class="name">Life path consistency</span>
+                                <span class="badge pass">✓ PASS</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="coverage-section">
+                <h2>📈 Code Coverage Analysis</h2>
+                <div class="coverage-grid">
+                    <div class="coverage-item">
+                        <div class="coverage-percentage">100%</div>
+                        <div class="coverage-label">Total Coverage</div>
+                    </div>
+                    <div class="coverage-item">
+                        <div class="coverage-percentage">73</div>
+                        <div class="coverage-label">Statements</div>
+                    </div>
+                    <div class="coverage-item">
+                        <div class="coverage-percentage">0</div>
+                        <div class="coverage-label">Missing Lines</div>
+                    </div>
+                    <div class="coverage-item">
+                        <div class="coverage-percentage">6</div>
+                        <div class="coverage-label">Functions</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>🔗 Detailed Reports & Resources</h2>
+                <div class="links-section">
+                    <div class="link-card">
+                        <h3>📄 Pytest HTML Report</h3>
+                        <p>Interactive HTML report with detailed test results, execution logs, and environment metadata</p>
+                        <a href="final_test_results.html" class="btn">View Report</a>
+                    </div>
+                    <div class="link-card">
+                        <h3>📈 Coverage Report</h3>
+                        <p>Line-by-line coverage analysis showing executed code paths with color-coded highlighting</p>
+                        <a href="final_coverage/index.html" class="btn">View Coverage</a>
+                    </div>
+                    <div class="link-card">
+                        <h3>📦 Test Source Code</h3>
+                        <p>Complete regression test suite implementation with 119 comprehensive test cases</p>
+                        <a href="tests/test_regression_suite.py" class="btn">View Tests</a>
+                    </div>
+                    <div class="link-card">
+                        <h3>📝 Execution Log</h3>
+                        <p>Complete terminal output from test execution with detailed timing and results</p>
+                        <a href="test_execution.log" class="btn">View Log</a>
+                    </div>
+                    <div class="link-card">
+                        <h3>🎨 Custom Dashboard</h3>
+                        <p>Beautiful comprehensive test dashboard with visualizations and detailed analysis</p>
+                        <a href="regression_report.html" class="btn">View Dashboard</a>
+                    </div>
+                    <div class="link-card">
+                        <h3>📋 Documentation</h3>
+                        <p>Complete testing documentation, comparison reports, and quick reference guides</p>
+                        <a href="../COMPLETE_TESTING_SUMMARY.md" class="btn">View Docs</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong class="highlight">ASTOR AI</strong> - Enterprise Astrology Platform</p>
+            <p>Backend Regression Test Suite | Python 3.13.3 | pytest 9.0.2</p>
+            <p>119 tests executed | 118 passed | 1 failed | 99.2% success rate | 100% coverage</p>
+            <p>Execution time: 0.82 seconds | Framework: Linux Ubuntu 6.14.0</p>
+            <p class="timestamp">Generated: December 20, 2025</p>
+        </div>
+    </div>
+</body>
+</html>
