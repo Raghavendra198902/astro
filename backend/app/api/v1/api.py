@@ -14,7 +14,12 @@ from app.api.v1.endpoints import (
     vision,  # ⚠️ Will gracefully fail if OpenCV missing
     users,
     consultations,  # ✅ Re-enabled - Subscription model added
-    panchang  # ✅ Hindu Panchang calendar
+    panchang,  # ✅ Hindu Panchang calendar
+    enhanced_features,  # 🆕 V5.0 Enhanced features
+    advanced_aggressive,  # 🔥 V5.0 AGGRESSIVE MODE
+    analytics,  # 🏢 Enterprise analytics
+    batch,  # 🏢 Batch processing
+    websocket  # 🏢 Real-time WebSocket
 )
 
 api_router = APIRouter()
@@ -45,4 +50,16 @@ api_router.include_router(consultations.router, prefix="/consultations", tags=["
 
 # Panchang (Hindu Calendar)
 api_router.include_router(panchang.router, prefix="/panchang", tags=["Panchang"])
+
+# Enhanced Features V5.0
+api_router.include_router(enhanced_features.router, prefix="/enhanced", tags=["Enhanced Features V5"])
+
+# 🔥 Advanced Aggressive Mode (Neural ML + Caching + Performance)
+api_router.include_router(advanced_aggressive.router, prefix="/advanced", tags=["Advanced Aggressive"])
+
+# 🏢 Enterprise Features
+api_router.include_router(analytics.router, prefix="/analytics", tags=["Enterprise Analytics"])
+api_router.include_router(batch.router, prefix="/batch", tags=["Batch Processing"])
+api_router.include_router(websocket.router, prefix="", tags=["WebSocket Real-time"])
+
 

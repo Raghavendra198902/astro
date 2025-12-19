@@ -1,252 +1,369 @@
 'use client';
 
-import { useEffect, useState, ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
-  Home,
-  BarChart3,
-  Calendar,
-  Users,
-  Sparkles,
-  Clock,
-  Eye,
-  Target,
-  Award,
-  Zap,
-  Settings,
-  LogOut,
-  User,
-  Menu,
-  Bell,
-  Search,
-  Plus,
+  Sparkles, LayoutDashboard, User, Calendar, TrendingUp,
+  Heart, Users, BarChart3, Settings, Moon, Sun, Bell,
+  Search, Menu, X, LogOut, ChevronDown, Star, Zap,
+  Shield, CreditCard, Globe, BookOpen, MessageSquare, HelpCircle
 } from 'lucide-react';
 
-interface DashboardLayoutProps {
-  children: ReactNode;
-}
-
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const pathname = usePathname();
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/auth/login');
-      return;
-    }
-
-    fetch('http://localhost:8000/api/v1/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data) => {
-        setUser(data);
-        setLoading(false);
-      })
-      .catch(() => {
-        localStorage.removeItem('token');
-        router.push('/auth/login');
-      });
-  }, [router]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    router.push('/auth/login');
-  };
-
-  const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Birth Charts', href: '/dashboard/charts', icon: BarChart3 },
-    { name: 'Predictions', href: '/dashboard/predictions', icon: Zap },
-    { name: 'Consultations', href: '/dashboard/consultations', icon: Calendar },
-    { name: 'Compatibility', href: '/dashboard/compatibility', icon: Users },
-    { name: 'Panchang', href: '/dashboard/panchang', icon: Clock },
-    { name: 'Face Reading', href: '/dashboard/face-reading', icon: Eye },
-    { name: 'Palmistry', href: '/dashboard/palmistry', icon: Target },
-    { name: 'Numerology', href: '/dashboard/numerology', icon: Award },
+  const menuItems = [
+    { 
+      icon: LayoutDashboard, 
+      label: 'Dashboard', 
+      href: '/dashboard',
+      badge: null
+    },
+    { 
+      icon: User, 
+      label: 'Birth Chart', 
+      href: '/dashboard/charts',
+      badge: null
+    },
+    { 
+      icon: TrendingUp, 
+      label: 'Predictions', 
+      href: '/dashboard/predictions',
+      badge: '3'
+    },
+    { 
+      icon: Calendar, 
+      label: 'Panchang', 
+      href: '/dashboard/panchang',
+      badge: null
+    },
+    { 
+      icon: Heart, 
+      label: 'Compatibility', 
+      href: '/dashboard/compatibility',
+      badge: null
+    },
+    { 
+      icon: Users, 
+      label: 'Consultations', 
+      href: '/dashboard/consultations',
+      badge: '1'
+    },
+    { 
+      icon: Star, 
+      label: 'Numerology', 
+      href: '/dashboard/numerology',
+      badge: null
+    },
+    { 
+      icon: BarChart3, 
+      label: 'Life Events', 
+      href: '/dashboard/life-events',
+      badge: null
+    },
+    { 
+      icon: Globe, 
+      label: 'Face Reading', 
+      href: '/dashboard/face-reading',
+      badge: 'AI'
+    },
+    { 
+      icon: BookOpen, 
+      label: 'Learning', 
+      href: '/dashboard/learning',
+      badge: null
+    },
   ];
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  const isActive = (href: string) => {
+    if (href === '/dashboard') {
+      return pathname === href;
+    }
+    return pathname.startsWith(href);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/30 to-slate-950">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-20 left-10 w-[500px] h-[500px] bg-gradient-to-br from-purple-600/15 via-pink-600/10 to-violet-600/15 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-[400px] h-[400px] bg-gradient-to-br from-cyan-500/10 via-blue-600/10 to-indigo-600/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(139,92,246,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(139,92,246,0.02)_1px,transparent_1px)] bg-[size:64px_64px]"></div>
       </div>
 
-      {/* Sidebar Navigation */}
-      <aside
-        className={`fixed left-0 top-0 z-50 h-screen w-64 bg-slate-900/95 backdrop-blur-xl border-r border-white/10 transition-transform duration-300 ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
-      >
-        <div className="flex flex-col h-full">
+      {/* Sidebar - Desktop */}
+      <aside className={`fixed top-0 left-0 z-40 h-screen transition-all duration-300 ${
+        sidebarOpen ? 'w-72' : 'w-20'
+      } hidden lg:block`}>
+        <div className="h-full bg-slate-950/80 backdrop-blur-xl border-r border-white/10 flex flex-col">
           {/* Logo */}
-          <div className="flex items-center gap-3 p-6 border-b border-white/10">
-            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl">
-              <Sparkles className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-              AstroAI
-            </span>
+          <div className="p-6 border-b border-white/10">
+            <Link href="/" className="flex items-center space-x-3 group">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl blur-md opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative bg-gradient-to-br from-purple-600 to-pink-600 p-2 rounded-xl">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              {sidebarOpen && (
+                <div>
+                  <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+                    AstroAI
+                  </span>
+                  <p className="text-xs text-gray-500">v5.0 Pro</p>
+                </div>
+              )}
+            </Link>
           </div>
 
-          {/* Navigation Items */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all group ${
-                    isActive
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
-                      : 'text-gray-400 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <item.icon
-                    className={`w-5 h-5 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`}
-                  />
-                  <span className="font-medium">{item.name}</span>
-                </Link>
-              );
-            })}
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+            {menuItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center space-x-3 px-3 py-3 rounded-xl transition-all group ${
+                  isActive(item.href)
+                    ? 'bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-white border border-purple-500/30'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <item.icon className={`w-5 h-5 flex-shrink-0 ${
+                  isActive(item.href) ? 'text-purple-400' : 'text-gray-400 group-hover:text-purple-400'
+                }`} />
+                {sidebarOpen && (
+                  <>
+                    <span className="flex-1 font-medium">{item.label}</span>
+                    {item.badge && (
+                      <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                        item.badge === 'AI' 
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                          : 'bg-purple-600/30 text-purple-400'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </Link>
+            ))}
           </nav>
 
-          {/* User Section */}
-          <div className="p-4 border-t border-white/10 space-y-2">
+          {/* Bottom Section */}
+          <div className="p-3 border-t border-white/10 space-y-1">
             <Link
               href="/dashboard/settings"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/10 hover:text-white transition group"
+              className={`flex items-center space-x-3 px-3 py-3 rounded-xl transition-all ${
+                isActive('/dashboard/settings')
+                  ? 'bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
             >
-              <Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
-              <span className="font-medium">Settings</span>
+              <Settings className="w-5 h-5 flex-shrink-0" />
+              {sidebarOpen && <span className="font-medium">Settings</span>}
             </Link>
-
-            <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-xl">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg">
-                <User className="w-4 h-4 text-white" />
+            
+            {sidebarOpen && (
+              <div className="mt-4 p-4 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-xl border border-purple-500/30">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Zap className="w-4 h-4 text-yellow-400" />
+                  <span className="text-sm font-bold text-white">Upgrade to Pro</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-3">Unlock AI predictions & premium features</p>
+                <button className="w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold rounded-lg hover:scale-105 transition-transform">
+                  Upgrade Now
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {user?.email?.split('@')[0] || 'User'}
-                </p>
-                <p className="text-xs text-gray-400">Premium Member</p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500/20 transition group"
-            >
-              <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              <span className="font-medium">Logout</span>
-            </button>
+            )}
           </div>
         </div>
       </aside>
 
-      {/* Mobile Overlay */}
+      {/* Mobile Sidebar */}
       {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)}></div>
+          <aside className="absolute top-0 left-0 w-80 h-full bg-slate-950/95 backdrop-blur-xl border-r border-white/10 flex flex-col">
+            {/* Mobile Header */}
+            <div className="p-6 border-b border-white/10 flex items-center justify-between">
+              <Link href="/" className="flex items-center space-x-3">
+                <div className="bg-gradient-to-br from-purple-600 to-pink-600 p-2 rounded-xl">
+                  <Sparkles className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+                    AstroAI
+                  </span>
+                  <p className="text-xs text-gray-500">v5.0 Pro</p>
+                </div>
+              </Link>
+              <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-gray-400 hover:text-white">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Mobile Navigation */}
+            <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+              {menuItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center space-x-3 px-3 py-3 rounded-xl transition-all ${
+                    isActive(item.href)
+                      ? 'bg-gradient-to-r from-purple-600/20 to-pink-600/20 text-white border border-purple-500/30'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1 font-medium">{item.label}</span>
+                  {item.badge && (
+                    <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                      item.badge === 'AI' 
+                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                        : 'bg-purple-600/30 text-purple-400'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </nav>
+          </aside>
+        </div>
       )}
 
-      {/* Modern Header Bar */}
-      <header className="lg:ml-64 fixed top-0 left-0 right-0 z-30 bg-slate-900/80 backdrop-blur-xl border-b border-white/10">
-        <div className="flex items-center justify-between px-4 lg:px-8 h-16">
-          {/* Left Side */}
-          <div className="flex items-center gap-4 flex-1">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-
-            <div className="hidden lg:flex items-center gap-3 flex-1 max-w-md">
-              <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search charts, predictions..."
-                  className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-                />
-              </div>
-            </div>
-
-            {/* Mobile Logo */}
-            <div className="lg:hidden flex items-center gap-2">
-              <div className="p-1.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent">
-                AstroAI
-              </span>
-            </div>
-          </div>
-
-          {/* Right Side */}
-          <div className="flex items-center gap-2">
-            <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-medium transition-all hover:scale-105 shadow-lg">
-              <Plus className="w-4 h-4" />
-              <span>New Chart</span>
-            </button>
-
-            <button className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white">
-              <Search className="w-5 h-5" />
-            </button>
-
-            <button className="p-2 hover:bg-white/10 rounded-lg transition text-gray-400 hover:text-white relative group">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white">
-                3
-              </span>
-            </button>
-
-            <div className="hidden sm:flex items-center gap-3 ml-2 pl-3 border-l border-white/10">
-              <div className="flex items-center gap-3 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition cursor-pointer group">
-                <div className="relative">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
-                  </div>
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-slate-900 rounded-full"></span>
-                </div>
-                <div className="hidden lg:block">
-                  <p className="text-sm font-medium text-white">{user?.email?.split('@')[0] || 'User'}</p>
-                  <p className="text-xs text-gray-400">Premium Plan</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
-      <main className="lg:ml-64 pt-16 relative z-10 min-h-screen">{children}</main>
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'lg:ml-72' : 'lg:ml-20'}`}>
+        {/* Header */}
+        <header className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur-xl border-b border-white/10">
+          <div className="px-4 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              {/* Left Section */}
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="hidden lg:block p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                
+                <button
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="lg:hidden p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+
+                {/* Search Bar */}
+                <div className="hidden md:flex items-center space-x-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2 w-96">
+                  <Search className="w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search charts, predictions..."
+                    className="bg-transparent border-none outline-none text-white placeholder-gray-500 w-full"
+                  />
+                  <kbd className="px-2 py-1 text-xs bg-white/10 rounded">⌘K</kbd>
+                </div>
+              </div>
+
+              {/* Right Section */}
+              <div className="flex items-center space-x-3">
+                {/* Notifications */}
+                <button className="relative p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all">
+                  <Bell className="w-5 h-5" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                </button>
+
+                {/* Dark Mode Toggle */}
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                >
+                  {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+
+                {/* User Menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center space-x-3 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all"
+                  >
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">TU</span>
+                    </div>
+                    <div className="hidden md:block text-left">
+                      <p className="text-sm font-semibold text-white">Test User</p>
+                      <p className="text-xs text-gray-400">Seeker Plan</p>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* User Dropdown */}
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                      <div className="p-4 border-b border-white/10">
+                        <p className="text-sm font-semibold text-white">Test User</p>
+                        <p className="text-xs text-gray-400">testuser@example.com</p>
+                      </div>
+                      <div className="py-2">
+                        <Link href="/dashboard/settings" className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 transition-all">
+                          <User className="w-4 h-4" />
+                          <span className="text-sm">Profile</span>
+                        </Link>
+                        <Link href="/dashboard/settings" className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 transition-all">
+                          <CreditCard className="w-4 h-4" />
+                          <span className="text-sm">Billing</span>
+                        </Link>
+                        <Link href="/dashboard/settings" className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 transition-all">
+                          <Shield className="w-4 h-4" />
+                          <span className="text-sm">Privacy</span>
+                        </Link>
+                        <Link href="/help" className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 transition-all">
+                          <HelpCircle className="w-4 h-4" />
+                          <span className="text-sm">Help Center</span>
+                        </Link>
+                      </div>
+                      <div className="p-2 border-t border-white/10">
+                        <button className="flex items-center space-x-3 px-4 py-2 w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all">
+                          <LogOut className="w-4 h-4" />
+                          <span className="text-sm font-semibold">Sign Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="relative z-10 p-4 lg:p-8">
+          {children}
+        </main>
+
+        {/* Footer */}
+        <footer className="relative z-10 px-4 lg:px-8 py-6 border-t border-white/10">
+          <div className="flex flex-col md:flex-row items-center justify-between text-sm text-gray-500">
+            <p>© 2025 AstroAI. Built by Raghavendra Ramesh Deshpande</p>
+            <div className="flex items-center space-x-4 mt-2 md:mt-0">
+              <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+              <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+              <Link href="/help" className="hover:text-white transition-colors">Help</Link>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

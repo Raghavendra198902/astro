@@ -26,6 +26,97 @@ router = APIRouter()
 yoga_engine = YogaEngine()
 
 
+@router.post("/generate", status_code=status.HTTP_200_OK)
+async def generate_chart_quick(
+    chart_data: dict,
+):
+    """Quick chart generation for frontend display - No auth required for demo"""
+    from datetime import datetime
+    import pytz
+    
+    try:
+        # Parse input
+        date_str = chart_data.get("date")  # "1978-09-07"
+        time_str = chart_data.get("time")  # "14:45"
+        latitude = float(chart_data.get("latitude", 0))
+        longitude = float(chart_data.get("longitude", 0))
+        timezone_str = chart_data.get("timezone", "Asia/Kolkata")
+        chart_type = chart_data.get("chartType", "rasi")  # Get chart type
+        
+        # Combine date and time
+        dt_local = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        tz = pytz.timezone(timezone_str)
+        dt_local = tz.localize(dt_local)
+        dt_utc = dt_local.astimezone(pytz.UTC)
+        
+        # Calculate base chart (D1/Rasi)
+        chart_json = calculate_chart(
+            dt_utc,
+            latitude,
+            longitude,
+            system="vedic"
+        )
+        
+        # Handle divisional charts
+        divisional_map = {
+            "navamsa": "D9",
+            "dashamsa": "D10",
+            "dwadasamsa": "D12",
+            "trimsamsa": "D30",
+            "saptamsa": "D7"
+        }
+        
+        if chart_type in divisional_map:
+            # Calculate all divisional charts
+            from app.services.chart.engine import chart_engine
+            jd = chart_engine.calculate_julian_day(dt_utc)
+            divisional_charts = chart_engine.calculate_divisional_charts(jd, chart_json["planets"])
+            
+            div_key = divisional_map[chart_type]
+            if div_key in divisional_charts:
+                # Replace planet positions with divisional positions
+                chart_json["planets"] = divisional_charts[div_key]["positions"]
+                chart_json["chart_type"] = chart_type
+                chart_json["division_name"] = divisional_charts[div_key]["name"]
+        elif chart_type == "rasi":
+            chart_json["chart_type"] = "rasi"
+            chart_json["division_name"] = "Rasi (D1)"
+        else:
+            # For Western charts and transits
+            chart_json["chart_type"] = chart_type
+            chart_json["division_name"] = chart_type.title()
+            
+            # Add current transits for comparison
+            if chart_type in ["natal", "solar", "progressed"]:
+                from datetime import datetime as dt_module
+                current_utc = dt_module.utcnow()
+                transit_chart = calculate_chart(
+                    current_utc,
+                    latitude,
+                    longitude,
+                    system="vedic"
+                )
+                chart_json["transits"] = {
+                    "timestamp": current_utc.isoformat(),
+                    "planets": transit_chart["planets"]
+                }
+        
+        # Detect yogas (only for D1/Rasi)
+        if chart_type == "rasi":
+            yogas = yoga_engine.detect_yogas(
+                chart_json["planets"],
+                chart_json["houses"],
+                chart_json["ascendant"]
+            )
+            chart_json["yogas"] = yogas[:5]  # Top 5 yogas
+        else:
+            chart_json["yogas"] = []
+        
+        return chart_json
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/natal", response_model=ChartResponse, status_code=status.HTTP_201_CREATED)
 async def create_natal_chart(
     chart_data: ChartCreate,

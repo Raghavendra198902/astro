@@ -2,12 +2,12 @@
 Astor AI Version Information
 """
 
-__version__ = "2.0.0"
-__version_info__ = (2, 0, 0)
+__version__ = "5.0.0"
+__version_info__ = (5, 0, 0)
 
 # Release metadata
-RELEASE_DATE = "2025-12-10"
-RELEASE_NAME = "Enterprise Launch"
+RELEASE_DATE = "2025-12-18"
+RELEASE_NAME = "AI Excellence & Marathi Support"
 API_VERSION = "v1"
 
 # Feature flags for version
@@ -25,6 +25,18 @@ FEATURES = {
     "video_consultations": True,
     "rag_engine": True,
     "multi_llm_support": True,
+    "enhanced_ml_accuracy": True,
+    "marathi_language": True,
+    "improved_gui": True,
+    "multi_language_support": True,
+    "advanced_prediction_engine": True,
+    # 🔥 Aggressive Mode Features
+    "aggressive_caching": True,
+    "neural_ml_ensemble": True,
+    "parallel_processing": True,
+    "performance_monitoring": True,
+    "gpu_acceleration_support": True,
+    "sub_50ms_responses": True,
 }
 
 # Minimum versions for dependencies

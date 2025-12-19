@@ -111,6 +111,15 @@ class Settings(BaseSettings):
     PLAN_PRO_YEARLY_PRICE: int = 9999
     PLAN_ASTROLOGER_MONTHLY_PRICE: int = 2999
     
+    # OAuth Configuration
+    GOOGLE_CLIENT_ID: str = Field(default="test_client_id")
+    GOOGLE_CLIENT_SECRET: str = Field(default="test_secret")
+    GOOGLE_REDIRECT_URI: str = Field(default="http://192.168.0.102/api/v1/auth/google/callback")
+    MICROSOFT_CLIENT_ID: str = Field(default="test_client_id")
+    MICROSOFT_CLIENT_SECRET: str = Field(default="test_secret")
+    MICROSOFT_REDIRECT_URI: str = Field(default="http://192.168.0.102/api/v1/auth/microsoft/callback")
+    FRONTEND_URL: str = Field(default="http://192.168.0.102:3000")
+    
     # Vision AI
     ENABLE_VISION_AI: bool = True
     VISION_ON_DEVICE_PREFERRED: bool = True

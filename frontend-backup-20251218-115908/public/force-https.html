@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Redirecting to HTTPS...</title>
+    <script>
+        if (window.location.protocol === 'http:') {
+            window.location.href = window.location.href.replace('http:', 'https:');
+        }
+    </script>
+</head>
+<body>
+    <h1>Redirecting to secure connection...</h1>
+    <p>If you are not redirected, <a href="#" onclick="window.location.href = window.location.href.replace('http:', 'https:')">click here</a>.</p>
+</body>
+</html>

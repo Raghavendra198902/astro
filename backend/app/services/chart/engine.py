@@ -564,6 +564,7 @@ class ChartEngine:
         
         # Define divisions for each varga
         divisions = {
+            "D7": {"name": "Saptamsa", "parts": 7, "per_sign": 4.285714},  # 7 divisions
             "D9": {"name": "Navamsa", "parts": 9, "per_sign": 3.333333},  # 9 divisions
             "D10": {"name": "Dasamsa", "parts": 10, "per_sign": 3.0},  # 10 divisions
             "D12": {"name": "Dwadasamsa", "parts": 12, "per_sign": 2.5},  # 12 divisions

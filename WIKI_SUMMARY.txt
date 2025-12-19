@@ -1,0 +1,143 @@
+=== Astor AI Wiki Documentation Created ===
+
+�� Wiki Pages Created: 9 files (8 wiki pages + README)
+
+1. Home.md (5.4 KB)
+   - Complete project overview
+   - Tech stack details
+   - Quick links and navigation
+   - System status
+
+2. Installation-Guide.md (5.5 KB)
+   - Prerequisites and requirements
+   - Docker setup instructions
+   - Local development setup
+   - Troubleshooting installation
+
+3. Quick-Start.md (7.1 KB)
+   - 5-minute setup guide
+   - First user creation
+   - Chart generation examples
+   - Common operations
+
+4. Configuration.md (9.7 KB)
+   - All environment variables
+   - Database configuration
+   - Redis and RabbitMQ setup
+   - Security settings
+   - Performance tuning
+
+5. System-Architecture.md (12.8 KB)
+   - High-level architecture diagram
+   - Technology stack details
+   - Service architecture (4 core + 21 supporting)
+   - Database schema (20 tables, 65+ indexes)
+   - Data flow diagrams
+   - Security architecture
+   - Performance optimization
+
+6. API-Design.md (8.3 KB)
+   - 69 API endpoints documented
+   - Authentication flow
+   - Request/response patterns
+   - HTTP status codes
+   - Example API calls
+   - Rate limiting
+   - Security best practices
+
+7. Deployment-Guide.md (12.0 KB)
+   - Docker deployment (step-by-step)
+   - Kubernetes deployment (manifests included)
+   - Cloud platform deployment (AWS, GCP, DigitalOcean)
+   - Nginx reverse proxy configuration
+   - SSL/TLS setup with Let's Encrypt
+   - CI/CD pipeline (GitHub Actions)
+   - Post-deployment checklist
+
+8. Troubleshooting.md (8.5 KB)
+   - Quick diagnostics commands
+   - 10 common issues with solutions
+   - Advanced troubleshooting
+   - Database debugging
+   - Network issues
+   - Clean slate restart procedures
+
+9. README.md (2.0 KB)
+   - Wiki overview
+   - Publishing instructions
+   - File naming conventions
+   - Update procedures
+
+📊 Total Documentation:
+- Files: 9
+- Size: ~68 KB
+- Lines: ~3,146
+- Topics: 50+
+
+🎯 Coverage:
+✅ Installation and setup
+✅ Configuration and environment
+✅ Architecture and design
+✅ API documentation (69 endpoints)
+✅ Deployment strategies
+✅ Troubleshooting guide
+✅ Security best practices
+✅ Performance optimization
+
+📝 Git Status:
+- Commit: ace68f3
+- Message: "docs: Add comprehensive wiki documentation"
+- Files changed: 9 files, 3146 insertions(+)
+- Branch: main (4 commits ahead of origin/main)
+
+🚀 Next Steps:
+
+1. Push to GitHub:
+   git push origin main
+
+2. Enable GitHub Wiki:
+   - Go to repository settings
+   - Enable Wiki feature
+
+3. Publish to GitHub Wiki:
+   git clone https://github.com/Raghavendra198902/astro.wiki.git
+   cp wiki/*.md astro.wiki/
+   cd astro.wiki
+   git add *.md
+   git commit -m "Initial wiki documentation"
+   git push origin master
+
+4. Access Wiki:
+   https://github.com/Raghavendra198902/astro/wiki
+
+📚 Wiki Structure:
+wiki/
+├── README.md (instructions)
+├── Home.md (main page)
+├── Installation-Guide.md
+├── Quick-Start.md
+├── Configuration.md
+├── System-Architecture.md
+├── API-Design.md
+├── Deployment-Guide.md
+└── Troubleshooting.md
+
+✨ Key Features:
+- Comprehensive installation guide with Docker
+- Quick start for 5-minute setup
+- Complete API documentation (69 endpoints)
+- Production deployment guide (Docker, K8s, Cloud)
+- Detailed architecture diagrams
+- Troubleshooting for 10+ common issues
+- Security best practices
+- Performance optimization tips
+
+🔗 Related Documentation:
+- Main README.md (project overview)
+- docs/ folder (33 organized documentation files)
+- API docs: http://localhost:8000/docs
+- OpenAPI spec: http://localhost:8000/openapi.json
+
+Created: December 10, 2025
+Version: 2.0.0
+Status: ✅ Complete and committed to git

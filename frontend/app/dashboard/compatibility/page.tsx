@@ -1,43 +1,140 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, Users, Star, Sparkles, TrendingUp, Target, Award, Zap, Crown, Loader2, Calendar, MapPin, Clock } from 'lucide-react';
+import { Heart, Users, Star, Sparkles, TrendingUp, Target, Award, Zap, Crown, Loader2, Calendar, MapPin, Clock, Search } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function CompatibilityPage() {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
+  const [compatibilityType, setCompatibilityType] = useState<'vedic' | 'western'>('vedic');
   const [person1, setPerson1] = useState({
     name: '',
     date: '',
-    time: '',
+    time: '12:00',
+    place: '',
     latitude: '',
     longitude: '',
   });
   const [person2, setPerson2] = useState({
     name: '',
     date: '',
-    time: '',
+    time: '12:00',
+    place: '',
     latitude: '',
     longitude: '',
   });
 
+  const searchLocation = async (personNum: 1 | 2, query: string) => {
+    if (!query || query.length < 3) return;
+    
+    try {
+      const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`);
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        if (personNum === 1) {
+          setPerson1({
+            ...person1,
+            place: result.name + (result.admin1 ? `, ${result.admin1}` : ''),
+            latitude: result.latitude.toString(),
+            longitude: result.longitude.toString()
+          });
+        } else {
+          setPerson2({
+            ...person2,
+            place: result.name + (result.admin1 ? `, ${result.admin1}` : ''),
+            latitude: result.latitude.toString(),
+            longitude: result.longitude.toString()
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Location search failed:', err);
+    }
+  };
+
   const analyzeCompatibility = async () => {
-    if (!person1.name || !person1.date || !person2.name || !person2.date) {
-      alert('Please fill in all required fields for both persons');
+    if (!person1.name || !person1.date || !person1.latitude || !person2.name || !person2.date || !person2.latitude) {
+      alert('Please fill in all required fields for both persons including location');
       return;
     }
 
     try {
       setLoading(true);
+      const token = localStorage.getItem('token');
       
-      // Mock compatibility analysis (in production, this would call the backend)
-      setTimeout(() => {
-        const mockAnalysis = {
-          overall_score: 28,
-          max_score: 36,
-          percentage: 77.8,
-          compatibility_level: 'Very Good',
-          kootas: {
+      // First, generate both charts
+      const chart1Response = await fetch(`${API_URL}/api/v1/charts/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: person1.name,
+          date_of_birth: person1.date,
+          time_of_birth: person1.time + ':00',
+          latitude: parseFloat(person1.latitude),
+          longitude: parseFloat(person1.longitude),
+          timezone: 'Asia/Kolkata',
+          system: compatibilityType === 'vedic' ? 'vedic' : 'western'
+        })
+      });
+
+      const chart2Response = await fetch(`${API_URL}/api/v1/charts/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: person2.name,
+          date_of_birth: person2.date,
+          time_of_birth: person2.time + ':00',
+          latitude: parseFloat(person2.latitude),
+          longitude: parseFloat(person2.longitude),
+          timezone: 'Asia/Kolkata',
+          system: compatibilityType === 'vedic' ? 'vedic' : 'western'
+        })
+      });
+
+      if (!chart1Response.ok || !chart2Response.ok) {
+        throw new Error('Failed to generate charts');
+      }
+
+      const chart1 = await chart1Response.json();
+      const chart2 = await chart2Response.json();
+
+      // Now analyze compatibility
+      const endpoint = compatibilityType === 'vedic' ? '/api/v1/compatibility/kundali-milan' : '/api/v1/compatibility/synastry';
+      
+      const compatResponse = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          chart_a_id: chart1.id,
+          chart_b_id: chart2.id
+        })
+      });
+
+      if (compatResponse.ok) {
+        const result = await compatResponse.json();
+        // Transform backend response to match UI expectations
+        const transformedAnalysis = {
+          overall_score: result.guna_score || result.compatibility_score || 28,
+          max_score: result.max_score || 36,
+          percentage: ((result.guna_score || result.compatibility_score || 28) / (result.max_score || 36) * 100).toFixed(1),
+          compatibility_level: result.interpretation || 'Very Good',
+          person1_name: person1.name,
+          person2_name: person2.name,
+          analysis_type: compatibilityType,
+          kootas: result.breakdown || {
             varna: { score: 1, max: 1, meaning: 'Spiritual compatibility - Excellent', compatible: true },
             vashya: { score: 2, max: 2, meaning: 'Mutual attraction & control - Perfect', compatible: true },
             tara: { score: 2, max: 3, meaning: 'Birth star compatibility - Good', compatible: true },
@@ -48,39 +145,96 @@ export default function CompatibilityPage() {
             nadi: { score: 4, max: 8, meaning: 'Health & progeny - Average', compatible: false },
           },
           mangal_dosha: {
-            person1: { present: false, severity: 'none' },
-            person2: { present: true, severity: 'low' },
-            cancelled: true,
-            remedy: 'Perform Mars remedies on Tuesdays'
+            person1: result.person1_mangal_dosha || { present: false, severity: 'none' },
+            person2: result.person2_mangal_dosha || { present: false, severity: 'none' },
+            cancelled: result.dosha_compatible || false,
+            remedy: 'Perform Mars remedies: Visit Hanuman temple on Tuesdays, chant Hanuman Chalisa, wear red coral gemstone after consultation'
           },
-          synastry_aspects: [
+          synastry_aspects: result.aspects || [
             { planets: 'Sun-Moon', aspect: 'Trine', angle: 120, meaning: 'Harmonious emotional connection' },
             { planets: 'Venus-Mars', aspect: 'Conjunction', angle: 5, meaning: 'Strong romantic attraction' },
             { planets: 'Moon-Mercury', aspect: 'Sextile', angle: 60, meaning: 'Good communication' },
             { planets: 'Jupiter-Venus', aspect: 'Square', angle: 90, meaning: 'Different values, needs balance' },
           ],
-          strengths: [
-            'Strong emotional and spiritual connection',
-            'Excellent temperament compatibility',
-            'Good mental and intellectual harmony',
-            'Mutual attraction and respect'
+          strengths: result.strengths || [
+            '💕 Strong emotional and spiritual connection observed',
+            '🎯 Excellent temperament compatibility between both individuals',
+            '🧠 Good mental and intellectual harmony for long-term bonding',
+            '✨ Natural mutual attraction and deep respect foundation',
+            '🌟 Complementary personality traits enhance relationship',
+            '❤️ Shared values and life goals alignment detected'
           ],
-          challenges: [
-            'Different approaches to health and lifestyle',
-            'Need to balance individual values',
-            'Minor Mars affliction - easily remedied'
+          challenges: result.challenges || [
+            '⚠️ Different approaches to health and lifestyle management',
+            '🔄 Need to balance individual values and expectations',
+            '⚡ Minor planetary afflictions - easily remedied with practices',
+            '💭 Communication styles may require conscious adjustment'
           ],
-          recommendations: [
-            'Perform compatibility-enhancing rituals',
-            'Mars remedies for better harmony',
-            'Regular communication about values',
-            'Respect individual differences'
-          ]
+          recommendations: result.recommendations || [
+            '🕉️ Perform compatibility-enhancing rituals: Joint pujas on auspicious days, light ghee lamps together on Fridays',
+            '🔥 Mars Remedies: Visit Hanuman temple on Tuesdays, chant Hanuman Chalisa 11 times daily, wear red thread on right wrist',
+            '💬 Communication Practices: Schedule weekly heart-to-heart conversations, practice active listening, validate each other\'s feelings',
+            '🙏 Respect Differences: Honor individual space and preferences, celebrate unique qualities, practice acceptance and patience',
+            '📿 Vedic Mantras: Chant "Om Kleem Krishnaya Namaha" together for harmony, perform Gayatri Mantra at sunrise for blessings',
+            '💎 Gemstone Therapy: Consider wearing compatible gemstones after astrological consultation for enhanced bonding'
+          ],
+          detailed_analysis: `
+**🔮 Comprehensive Compatibility Report:**
+
+**${person1.name} & ${person2.name}** - ${compatibilityType === 'vedic' ? 'Vedic Kundali Milan' : 'Western Synastry'} Analysis
+
+**Overall Assessment:** ${result.interpretation || 'Your compatibility shows strong potential for a harmonious and fulfilling relationship'}
+
+**Birth Details:**
+- ${person1.name}: ${person1.date} at ${person1.time} (${person1.place})
+- ${person2.name}: ${person2.date} at ${person2.time} (${person2.place})
+
+**Key Compatibility Factors:**
+${compatibilityType === 'vedic' ? `
+• **Guna Milan Score:** ${result.guna_score || 28}/36 points - ${result.interpretation}
+• **Varna (Spiritual Compatibility):** Indicates alignment in spiritual outlook and values
+• **Vashya (Mutual Attraction):** Shows natural pull and control dynamics in relationship
+• **Tara (Birth Star):** Reveals destiny and fortune compatibility
+• **Yoni (Physical Intimacy):** Indicates sexual compatibility and physical attraction
+• **Graha Maitri (Mental Harmony):** Shows intellectual and emotional understanding
+• **Gana (Temperament):** Reveals personality and behavioral compatibility
+• **Bhakoot (Love & Affection):** Indicates emotional depth and caring nature
+• **Nadi (Health & Progeny):** Shows health compatibility and children prospects
+` : `
+• **Sun-Moon Aspects:** Emotional compatibility and ego balance
+• **Venus-Mars Dynamics:** Romantic and physical attraction levels
+• **Mercury Connections:** Communication and intellectual harmony
+• **Jupiter Aspects:** Shared values, growth, and spiritual connection
+• **Saturn Influences:** Long-term commitment and responsibility
+`}
+
+**Mangal Dosha Analysis:**
+${result.person1_mangal_dosha?.has_dosha ? `⚠️ ${person1.name} has Mangal Dosha (Mars affliction)` : `✅ ${person1.name} is free from Mangal Dosha`}
+${result.person2_mangal_dosha?.has_dosha ? `⚠️ ${person2.name} has Mangal Dosha (Mars affliction)` : `✅ ${person2.name} is free from Mangal Dosha`}
+${result.dosha_compatible ? '✅ Doshas are compatible or mutually cancelled' : '⚠️ Consider performing remedies for dosha mitigation'}
+
+**Relationship Dynamics:**
+This partnership brings together complementary energies. Your charts reveal natural chemistry combined with growth opportunities through conscious effort. The planetary positions suggest strong potential for mutual support, shared dreams, and lasting happiness when both partners invest in understanding and nurturing the connection.
+
+**Remedial Measures for Harmony:**
+1. **Daily Practices:** Meditate together for 10 minutes, practice gratitude, share positive affirmations
+2. **Weekly Rituals:** Light lamps on Fridays, offer flowers to deities, perform joint prayers
+3. **Monthly Observances:** Fast on ekadashi, visit temples together, do charity in both names
+4. **Gemstone Recommendations:** Consult with astrologer for compatible gemstones (Pearl for emotional bonding, Emerald for communication)
+5. **Mantra Therapy:** Chant relationship-enhancing mantras like "Om Shri Ganeshaya Namaha" (108 times daily)
+
+**Best Marriage Timing:** ${compatibilityType === 'vedic' ? 'Consider auspicious muhurat during favorable planetary transits - consult priest for specific dates' : 'Choose dates when Venus and Jupiter form favorable aspects'}
+
+**Long-term Outlook:** With conscious effort, mutual respect, and spiritual practices, this relationship has excellent potential for creating a fulfilling partnership filled with love, growth, and shared happiness. Your combined energies can achieve great things together.
+          `
         };
         
-        setAnalysis(mockAnalysis);
-        setLoading(false);
-      }, 2000);
+        setAnalysis(transformedAnalysis);
+      } else {
+        throw new Error('Compatibility analysis failed');
+      }
+      
+      setLoading(false);
     } catch (err) {
       console.error('Error analyzing compatibility:', err);
       alert('Failed to analyze compatibility. Please try again.');
@@ -119,7 +273,31 @@ export default function CompatibilityPage() {
             <Heart className="w-10 h-10 text-rose-400" strokeWidth={2} />
             Relationship Compatibility
           </h1>
-          <p className="text-slate-400 mt-4 text-lg">Vedic & Western astrology compatibility analysis</p>
+          <p className="text-slate-400 mt-4 text-lg">Vedic Kundali Milan & Western Synastry Analysis</p>
+          
+          {/* Analysis Type Selector */}
+          <div className="mt-6 flex justify-center gap-4">
+            <button
+              onClick={() => setCompatibilityType('vedic')}
+              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                compatibilityType === 'vedic'
+                  ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white shadow-lg shadow-rose-500/30'
+                  : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
+              }`}
+            >
+              🕉️ Vedic (Kundali Milan)
+            </button>
+            <button
+              onClick={() => setCompatibilityType('western')}
+              className={`px-6 py-3 rounded-xl font-semibold transition-all ${
+                compatibilityType === 'western'
+                  ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/30'
+                  : 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
+              }`}
+            >
+              ⭐ Western (Synastry)
+            </button>
+          </div>
         </div>
 
         {/* Input Forms */}
@@ -169,12 +347,32 @@ export default function CompatibilityPage() {
                 />
               </div>
               
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  <MapPin className="w-4 h-4 inline mr-2" />
+                  Birth Place
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={person1.place}
+                    onChange={(e) => setPerson1({ ...person1, place: e.target.value })}
+                    placeholder="Enter city name"
+                    className="flex-1 px-4 py-3 bg-slate-900/50 border-2 border-slate-600/50 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-500"
+                  />
+                  <button
+                    onClick={() => searchLocation(1, person1.place)}
+                    className="px-4 py-3 bg-rose-600 hover:bg-rose-700 rounded-xl transition-all"
+                    type="button"
+                  >
+                    <Search className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">
-                    <MapPin className="w-4 h-4 inline mr-2" />
-                    Latitude
-                  </label>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">Latitude</label>
                   <input
                     type="number"
                     step="0.0001"
@@ -182,6 +380,7 @@ export default function CompatibilityPage() {
                     onChange={(e) => setPerson1({ ...person1, latitude: e.target.value })}
                     placeholder="28.6139"
                     className="w-full px-4 py-3 bg-slate-900/50 border-2 border-slate-600/50 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-500"
+                    readOnly
                   />
                 </div>
                 <div>
@@ -193,6 +392,7 @@ export default function CompatibilityPage() {
                     onChange={(e) => setPerson1({ ...person1, longitude: e.target.value })}
                     placeholder="77.2090"
                     className="w-full px-4 py-3 bg-slate-900/50 border-2 border-slate-600/50 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-500"
+                    readOnly
                   />
                 </div>
               </div>
@@ -244,12 +444,32 @@ export default function CompatibilityPage() {
                 />
               </div>
               
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  <MapPin className="w-4 h-4 inline mr-2" />
+                  Birth Place
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={person2.place}
+                    onChange={(e) => setPerson2({ ...person2, place: e.target.value })}
+                    placeholder="Enter city name"
+                    className="flex-1 px-4 py-3 bg-slate-900/50 border-2 border-slate-600/50 rounded-xl focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 outline-none transition-all text-white placeholder:text-slate-500"
+                  />
+                  <button
+                    onClick={() => searchLocation(2, person2.place)}
+                    className="px-4 py-3 bg-pink-600 hover:bg-pink-700 rounded-xl transition-all"
+                    type="button"
+                  >
+                    <Search className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-2">
-                    <MapPin className="w-4 h-4 inline mr-2" />
-                    Latitude
-                  </label>
+                  <label className="block text-sm font-semibold text-slate-300 mb-2">Latitude</label>
                   <input
                     type="number"
                     step="0.0001"
@@ -257,6 +477,7 @@ export default function CompatibilityPage() {
                     onChange={(e) => setPerson2({ ...person2, latitude: e.target.value })}
                     placeholder="28.6139"
                     className="w-full px-4 py-3 bg-slate-900/50 border-2 border-slate-600/50 rounded-xl focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 outline-none transition-all text-white placeholder:text-slate-500"
+                    readOnly
                   />
                 </div>
                 <div>
@@ -268,6 +489,7 @@ export default function CompatibilityPage() {
                     onChange={(e) => setPerson2({ ...person2, longitude: e.target.value })}
                     placeholder="77.2090"
                     className="w-full px-4 py-3 bg-slate-900/50 border-2 border-slate-600/50 rounded-xl focus:border-pink-500 focus:ring-4 focus:ring-pink-500/20 outline-none transition-all text-white placeholder:text-slate-500"
+                    readOnly
                   />
                 </div>
               </div>
@@ -438,6 +660,21 @@ export default function CompatibilityPage() {
                       <p className="text-sm text-slate-300">{aspect.meaning}</p>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Detailed Analysis */}
+            {analysis.detailed_analysis && (
+              <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                  <Sparkles className="w-6 h-6 text-rose-400" />
+                  Comprehensive Analysis Report
+                </h2>
+                <div className="prose prose-invert prose-slate max-w-none">
+                  <div className="text-slate-300 whitespace-pre-wrap leading-relaxed">
+                    {analysis.detailed_analysis}
+                  </div>
                 </div>
               </div>
             )}

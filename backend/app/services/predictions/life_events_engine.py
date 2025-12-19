@@ -559,7 +559,7 @@ class LifeEventsEngine:
                 future_events.append({
                     "age": age_range[0],
                     "year": datetime.now().year + (age_range[0] - current_age),
-                    "category": EventCategory.TRANSFORMATION.value,
+                    "category": EventCategory.SPIRITUAL.value,  # Changed from TRANSFORMATION
                     "event_type": pattern.get("event_type", "neutral"),
                     "title": pattern.get("pattern", "").replace("_", " ").title(),
                     "description": pattern.get("description", ""),

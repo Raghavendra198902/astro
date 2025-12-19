@@ -95,11 +95,11 @@ class Profile(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
-    dob_ts_utc = Column(DateTime(timezone=True), nullable=False)
+    dob_ts_utc = Column(DateTime(timezone=True), nullable=True)  # Allow null for OAuth users
     tob_accuracy = Column(Enum(TOBAccuracy, name="tob_accuracy", values_callable=lambda x: [e.value for e in x]), default=TOBAccuracy.APPROXIMATE, nullable=False)
-    birthplace_text = Column(String(500), nullable=False)
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
+    birthplace_text = Column(String(500), nullable=True)  # Allow null for OAuth users
+    latitude = Column(Float, nullable=True)  # Allow null for OAuth users
+    longitude = Column(Float, nullable=True)  # Allow null for OAuth users
     timezone = Column(String(100), nullable=False)
     preferred_system = Column(Enum(ChartSystem, name="chart_system", values_callable=lambda x: [e.value for e in x]), default=ChartSystem.VEDIC, nullable=False)
     language = Column(String(10), default="en", nullable=False)

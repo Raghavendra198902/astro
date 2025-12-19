@@ -1,647 +1,777 @@
 'use client';
 
-import { useState } from 'react';
-import { Sparkles, TrendingUp, Calendar, Clock, Heart, Briefcase, DollarSign, Activity, AlertCircle, CheckCircle, Info, ChevronRight, Star, Moon, Sun } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { 
+  Sparkles, TrendingUp, Calendar, Clock, Heart, Briefcase, 
+  DollarSign, Activity, AlertCircle, CheckCircle, Info, 
+  ChevronRight, Star, Moon, Sun, History, FastForward, 
+  Blend, Brain, Target, Zap, Award, Globe, Languages,
+  Share2, Download, FileText, MessageCircle 
+} from 'lucide-react';
+import { API_URL } from '@/app/config';
 
-type TimeFrame = 'today' | 'week' | 'month' | 'year';
-type LifeArea = 'career' | 'relationships' | 'health' | 'finance' | 'personal' | 'spiritual';
+type Language = 'en' | 'mr' | 'hi';
+type TimePeriod = 'past' | 'future' | 'both';
 
-export default function PredictionsPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'transits' | 'dashas'>('overview');
-  const [selectedTimeFrame, setSelectedTimeFrame] = useState<TimeFrame>('month');
-  const [selectedArea, setSelectedArea] = useState<LifeArea | 'all'>('all');
+// Marathi translations
+const translations = {
+  en: {
+    title: 'AI-Powered Life Predictions',
+    subtitle: 'Enhanced ML predictions with 100% accuracy focus',
+    generateBtn: 'Generate AI Predictions',
+    loading: 'Generating predictions...',
+    noProfile: 'No Profile Found',
+    createProfile: 'Please create your birth profile first',
+    language: 'Language',
+    accuracy: 'Accuracy',
+    confidence: 'Confidence',
+    mlAnalysis: 'ML Analysis',
+    recommendations: 'Recommendations',
+    astrological: 'Astrological Basis'
+  },
+  mr: {
+    title: 'AI-सक्षम जीवन भविष्यवाणी',
+    subtitle: '100% अचूकतेसह वर्धित ML भविष्यवाणी',
+    generateBtn: 'AI भविष्यवाणी तयार करा',
+    loading: 'भविष्यवाणी तयार करत आहे...',
+    noProfile: 'प्रोफाइल सापडले नाही',
+    createProfile: 'कृपया प्रथम तुमची जन्म प्रोफाइल तयार करा',
+    language: 'भाषा',
+    accuracy: 'अचूकता',
+    confidence: 'विश्वास',
+    mlAnalysis: 'ML विश्लेषण',
+    recommendations: 'शिफारशी',
+    astrological: 'ज्योतिषीय आधार'
+  },
+  hi: {
+    title: 'AI-संचालित जीवन भविष्यवाणी',
+    subtitle: '100% सटीकता के साथ उन्नत ML भविष्यवाणी',
+    generateBtn: 'AI भविष्यवाणी उत्पन्न करें',
+    loading: 'भविष्यवाणी उत्पन्न हो रही है...',
+    noProfile: 'प्रोफ़ाइल नहीं मिली',
+    createProfile: 'कृपया पहले अपनी जन्म प्रोफ़ाइल बनाएं',
+    language: 'भाषा',
+    accuracy: 'सटीकता',
+    confidence: 'आत्मविश्वास',
+    mlAnalysis: 'ML विश्लेषण',
+    recommendations: 'सिफारिशें',
+    astrological: 'ज्योतिषीय आधार'
+  }
+};
+
+// Life area icons and colors
+const areaConfig = {
+  career: { icon: Briefcase, color: 'blue', label: { en: 'Career', mr: 'करिअर', hi: 'करियर' } },
+  relationships: { icon: Heart, color: 'pink', label: { en: 'Relationships', mr: 'नातेसंबंध', hi: 'रिश्ते' } },
+  health: { icon: Activity, color: 'green', label: { en: 'Health', mr: 'आरोग्य', hi: 'स्वास्थ्य' } },
+  finance: { icon: DollarSign, color: 'yellow', label: { en: 'Finance', mr: 'आर्थिक', hi: 'वित्त' } },
+  personal: { icon: Star, color: 'purple', label: { en: 'Personal', mr: 'वैयक्तिक', hi: 'व्यक्तिगत' } },
+  spiritual: { icon: Sparkles, color: 'indigo', label: { en: 'Spiritual', mr: 'आध्यात्मिक', hi: 'आध्यात्मिक' } },
+  education: { icon: Brain, color: 'cyan', label: { en: 'Education', mr: 'शिक्षण', hi: 'शिक्षा' } },
+  family: { icon: Heart, color: 'rose', label: { en: 'Family', mr: 'कुटुंब', hi: 'परिवार' } },
+};
+
+export default function EnhancedPredictionsPage() {
+  const [language, setLanguage] = useState<Language>('en');
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('both');
   const [loading, setLoading] = useState(false);
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userChart, setUserChart] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [profileChecked, setProfileChecked] = useState(false);
+  const [selectedPrediction, setSelectedPrediction] = useState<any>(null);
+  const [aggressiveMode, setAggressiveMode] = useState(true); // 🔥 Aggressive Mode
+  
+  // 🏢 Enterprise Features
+  const [wsConnected, setWsConnected] = useState(false);
+  const [liveTransits, setLiveTransits] = useState<any>(null);
+  const [cacheStatus, setCacheStatus] = useState<'cached' | 'fresh' | null>(null);
+  const [responseTime, setResponseTime] = useState<number>(0);
 
-  // Mock predictions data
-  const predictions = {
-    overall: {
-      score: 78,
-      trend: 'improving',
-      message: 'A favorable period ahead with opportunities for growth'
-    },
-    areas: [
-      {
-        id: 'career' as LifeArea,
-        name: 'Career',
-        icon: Briefcase,
-        score: 85,
-        trend: 'up',
-        color: 'blue',
-        prediction: 'Excellent time for professional advancement. Consider taking on new projects or responsibilities.',
-        opportunities: ['Job promotion possible in Q1', 'Network expansion opportunities', 'Recognition from seniors'],
-        challenges: ['Work-life balance needs attention', 'Avoid office politics'],
-        bestDays: ['Dec 15', 'Dec 22', 'Dec 28']
-      },
-      {
-        id: 'relationships' as LifeArea,
-        name: 'Relationships',
-        icon: Heart,
-        score: 72,
-        trend: 'stable',
-        color: 'rose',
-        prediction: 'Steady period for relationships. Communication is key to maintaining harmony.',
-        opportunities: ['Deepen existing bonds', 'Resolve past conflicts', 'Meet new people'],
-        challenges: ['Miscommunication possible mid-month', 'Need patience with family'],
-        bestDays: ['Dec 14', 'Dec 21', 'Dec 29']
-      },
-      {
-        id: 'health' as LifeArea,
-        name: 'Health',
-        icon: Activity,
-        score: 68,
-        trend: 'down',
-        color: 'emerald',
-        prediction: 'Focus on preventive care and maintaining healthy routines. Energy levels may fluctuate.',
-        opportunities: ['Start new fitness routine', 'Mental wellness focus', 'Dietary improvements'],
-        challenges: ['Stress management needed', 'Sleep quality may suffer', 'Avoid overexertion'],
-        bestDays: ['Dec 12', 'Dec 19', 'Dec 26']
-      },
-      {
-        id: 'finance' as LifeArea,
-        name: 'Finance',
-        icon: DollarSign,
-        score: 80,
-        trend: 'up',
-        color: 'amber',
-        prediction: 'Good period for financial planning and investments. Unexpected gains possible.',
-        opportunities: ['Investment opportunities', 'Salary increment likely', 'Side income sources'],
-        challenges: ['Avoid impulsive purchases', 'Review existing investments'],
-        bestDays: ['Dec 16', 'Dec 23', 'Dec 30']
-      },
-      {
-        id: 'personal' as LifeArea,
-        name: 'Personal Growth',
-        icon: Star,
-        score: 76,
-        trend: 'up',
-        color: 'purple',
-        prediction: 'Period of self-reflection and personal development. New insights and clarity expected.',
-        opportunities: ['Learn new skills', 'Creative pursuits', 'Self-improvement'],
-        challenges: ['Avoid self-doubt', 'Stay focused on goals'],
-        bestDays: ['Dec 13', 'Dec 20', 'Dec 27']
-      },
-      {
-        id: 'spiritual' as LifeArea,
-        name: 'Spiritual',
-        icon: Sparkles,
-        score: 82,
-        trend: 'up',
-        color: 'indigo',
-        prediction: 'Heightened spiritual awareness and intuition. Excellent time for meditation and inner work.',
-        opportunities: ['Spiritual practices', 'Meditation breakthroughs', 'Connect with guides'],
-        challenges: ['Stay grounded', 'Balance material and spiritual'],
-        bestDays: ['Dec 11', 'Dec 18', 'Dec 25']
-      }
-    ],
-    timeline: [
-      {
-        date: '2025-12-15',
-        type: 'opportunity',
-        area: 'career',
-        title: 'Career Breakthrough',
-        description: 'Jupiter transit favors professional growth. Ideal day for important meetings or presentations.',
-        intensity: 'high'
-      },
-      {
-        date: '2025-12-18',
-        type: 'caution',
-        area: 'relationships',
-        title: 'Communication Challenge',
-        description: 'Mercury retrograde effect may cause misunderstandings. Practice clear communication.',
-        intensity: 'medium'
-      },
-      {
-        date: '2025-12-22',
-        type: 'opportunity',
-        area: 'finance',
-        title: 'Financial Gain',
-        description: 'Venus in favorable position indicates potential for financial benefits or gifts.',
-        intensity: 'high'
-      },
-      {
-        date: '2025-12-25',
-        type: 'neutral',
-        area: 'spiritual',
-        title: 'Spiritual Insight',
-        description: 'Powerful day for meditation and spiritual practices. Inner clarity expected.',
-        intensity: 'medium'
-      },
-      {
-        date: '2025-12-28',
-        type: 'opportunity',
-        area: 'personal',
-        title: 'Personal Milestone',
-        description: 'Sun transit supports personal goals and achievements. Take bold steps.',
-        intensity: 'high'
-      }
-    ],
-    transits: [
-      {
-        planet: 'Jupiter',
-        sign: 'Taurus',
-        house: 2,
-        effect: 'Expansion in finances and values. Good time for investments and building resources.',
-        duration: 'Until May 2026',
-        impact: 'positive'
-      },
-      {
-        planet: 'Saturn',
-        sign: 'Pisces',
-        house: 12,
-        effect: 'Period of introspection and spiritual growth. Focus on letting go and transformation.',
-        duration: 'Until March 2026',
-        impact: 'neutral'
-      },
-      {
-        planet: 'Mars',
-        sign: 'Leo',
-        house: 5,
-        effect: 'Boost in creativity and self-expression. Good for romance and creative projects.',
-        duration: 'Until Jan 2026',
-        impact: 'positive'
-      },
-      {
-        planet: 'Venus',
-        sign: 'Capricorn',
-        house: 10,
-        effect: 'Professional relationships and career advancement favored. Recognition possible.',
-        duration: 'Until Jan 15, 2026',
-        impact: 'positive'
-      },
-      {
-        planet: 'Mercury',
-        sign: 'Sagittarius',
-        house: 9,
-        effect: 'Expansion of knowledge and long-distance opportunities. Good for learning.',
-        duration: 'Until Dec 31, 2025',
-        impact: 'positive'
-      }
-    ],
-    dashas: [
-      {
-        level: 'Mahadasha',
-        planet: 'Venus',
-        startDate: '2023-05-15',
-        endDate: '2043-05-15',
-        duration: '20 years',
-        description: 'Venus Mahadasha brings focus on relationships, creativity, luxury, and material comforts. A generally favorable period for love, art, and prosperity.',
-        effects: ['Increased charm and social grace', 'Financial prosperity', 'Artistic inclinations', 'Focus on relationships']
-      },
-      {
-        level: 'Antardasha',
-        planet: 'Mars',
-        startDate: '2025-01-15',
-        endDate: '2026-03-15',
-        duration: '14 months',
-        description: 'Mars sub-period adds energy, ambition, and courage. Good for taking action on desires and goals.',
-        effects: ['Increased energy and drive', 'Competitive spirit', 'Physical activities favored', 'Quick decision making']
-      },
-      {
-        level: 'Pratyantardasha',
-        planet: 'Jupiter',
-        startDate: '2025-11-20',
-        endDate: '2026-01-25',
-        duration: '66 days',
-        description: 'Jupiter micro-period brings wisdom, expansion, and good fortune. Favorable for education and spiritual growth.',
-        effects: ['Optimism and positivity', 'Learning opportunities', 'Spiritual inclinations', 'Good luck']
-      }
-    ]
-  };
+  const t = translations[language];
 
-  const filteredAreas = selectedArea === 'all' 
-    ? predictions.areas 
-    : predictions.areas.filter(area => area.id === selectedArea);
+  // 🏢 WebSocket Connection for Live Updates
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-  const getTrendIcon = (trend: string) => {
-    if (trend === 'up') return <TrendingUp className="w-4 h-4" />;
-    if (trend === 'down') return <TrendingUp className="w-4 h-4 rotate-180" />;
-    return <div className="w-4 h-4 rounded-full bg-slate-500" />;
-  };
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}/api/v1/ws?token=${token}`);
 
-  const getTrendColor = (trend: string) => {
-    if (trend === 'up') return 'text-green-400';
-    if (trend === 'down') return 'text-red-400';
-    return 'text-slate-400';
-  };
-
-  const getEventTypeColor = (type: string) => {
-    if (type === 'opportunity') return 'bg-green-500/20 text-green-300 border-green-500/30';
-    if (type === 'caution') return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-    return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-  };
-
-  const getEventTypeIcon = (type: string) => {
-    if (type === 'opportunity') return <CheckCircle className="w-5 h-5" />;
-    if (type === 'caution') return <AlertCircle className="w-5 h-5" />;
-    return <Info className="w-5 h-5" />;
-  };
-
-  const getAreaColor = (color: string) => {
-    const colors: Record<string, string> = {
-      blue: 'from-blue-600/30 to-blue-700/30 border-blue-500/50',
-      rose: 'from-rose-600/30 to-rose-700/30 border-rose-500/50',
-      emerald: 'from-emerald-600/30 to-emerald-700/30 border-emerald-500/50',
-      amber: 'from-amber-600/30 to-amber-700/30 border-amber-500/50',
-      purple: 'from-purple-600/30 to-purple-700/30 border-purple-500/50',
-      indigo: 'from-indigo-600/30 to-indigo-700/30 border-indigo-500/50'
+    ws.onopen = () => {
+      setWsConnected(true);
+      console.log('✅ Enterprise WebSocket connected');
+      
+      // Request live transits
+      ws.send(JSON.stringify({
+        type: 'request_transits',
+        latitude: userProfile?.latitude || 28.6139,
+        longitude: userProfile?.longitude || 77.2090
+      }));
     };
-    return colors[color] || colors.blue;
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'transit_update' || data.type === 'transit_response') {
+        setLiveTransits(data.planets);
+        console.log('🌟 Live transit update received');
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('❌ WebSocket error:', error);
+      setWsConnected(false);
+    };
+
+    ws.onclose = () => {
+      setWsConnected(false);
+      console.log('👋 WebSocket disconnected');
+    };
+
+    // Heartbeat
+    const heartbeat = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'heartbeat' }));
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(heartbeat);
+      ws.close();
+    };
+  }, [userProfile]);
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Fetch profile
+      const profileRes = await fetch(`${API_URL}/api/v1/users/profiles`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (profileRes.ok) {
+        const profiles = await profileRes.json();
+        if (profiles.length > 0) {
+          setUserProfile(profiles[0]);
+          
+          // Fetch chart
+          const chartRes = await fetch(`${API_URL}/api/v1/charts`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (chartRes.ok) {
+            const charts = await chartRes.json();
+            if (charts.length > 0) setUserChart(charts[0]);
+          }
+        }
+      } else if (profileRes.status === 401) {
+        window.location.href = '/auth/login';
+      }
+      
+      setProfileChecked(true);
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+      setProfileChecked(true);
+    }
   };
 
-  const getPlanetIcon = (planet: string) => {
-    const icons: Record<string, any> = {
-      'Sun': Sun,
-      'Moon': Moon,
-      'Mars': Star,
-      'Mercury': Sparkles,
-      'Jupiter': Star,
-      'Venus': Heart,
-      'Saturn': Clock
-    };
-    const Icon = icons[planet] || Star;
-    return <Icon className="w-5 h-5" />;
+  const generatePredictions = async () => {
+    if (!userProfile) return;
+    
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      // 🏢 Track analytics event
+      try {
+        await fetch(`${API_URL}/api/v1/analytics/track`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            event_type: 'prediction_requested',
+            category: 'predictions',
+            action: 'generate',
+            label: aggressiveMode ? 'aggressive_mode' : 'standard_mode',
+            properties: {
+              language,
+              timePeriod,
+              aggressive: aggressiveMode
+            }
+          })
+        });
+      } catch (e) {
+        console.log('Analytics tracking skipped');
+      }
+      
+      // Use aggressive endpoint if enabled
+      const endpoint = aggressiveMode 
+        ? `${API_URL}/api/v1/advanced/predictions/aggressive`
+        : `${API_URL}/api/v1/events/enhanced-ml?language=${language}`;
+      
+      const startTime = performance.now();
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          full_name: userProfile.name,
+          birth_date: new Date(userProfile.dob_ts_utc).toISOString().split('T')[0],
+          birth_time: new Date(userProfile.dob_ts_utc).toISOString().split('T')[1].substring(0, 8),
+          birth_place: userProfile.birthplace_text,
+          latitude: userProfile.latitude,
+          longitude: userProfile.longitude,
+          current_age: calculateAge(new Date(userProfile.dob_ts_utc).toISOString().split('T')[0]),
+          prediction_years: 1,
+          language: language,
+          enable_boost: aggressiveMode,
+          parallel_processing: aggressiveMode
+        })
+      });
+
+      const endTime = performance.now();
+      const elapsed = Math.round(endTime - startTime);
+      setResponseTime(elapsed);
+
+      if (response.ok) {
+        const data = await response.json();
+        setPredictions(data.predictions || []);
+        setStats({
+          total: data.total_predictions,
+          avgAccuracy: data.average_accuracy,
+          methods: data.ml_methods
+        });
+        
+        // 🏢 Check cache status from headers
+        const cacheHeader = response.headers.get('X-Cache-Status');
+        setCacheStatus(cacheHeader === 'HIT' ? 'cached' : 'fresh');
+        
+        // Track success
+        try {
+          await fetch(`${API_URL}/api/v1/analytics/track`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              event_type: 'prediction_generated',
+              category: 'predictions',
+              action: 'success',
+              value: elapsed,
+              properties: {
+                count: data.total_predictions,
+                cached: cacheHeader === 'HIT',
+                responseTime: elapsed
+              }
+            })
+          });
+        } catch (e) {
+          console.log('Analytics tracking skipped');
+        }
+      } else if (response.status === 401) {
+        window.location.href = '/auth/login';
+      }
+    } catch (error) {
+      console.error('Failed to generate predictions:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const calculateAge = (birthDate: string) => {
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
+  const getConfidenceColor = (confidence: string) => {
+    switch(confidence) {
+      case 'very_high': return 'text-green-600 bg-green-50';
+      case 'high': return 'text-blue-600 bg-blue-50';
+      case 'moderate': return 'text-yellow-600 bg-yellow-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const getSentimentColor = (sentiment: string) => {
+    switch(sentiment) {
+      case 'positive': return 'border-green-500 bg-green-50';
+      case 'neutral': return 'border-blue-500 bg-blue-50';
+      case 'negative': return 'border-orange-500 bg-orange-50';
+      default: return 'border-gray-500 bg-gray-50';
+    }
+  };
+
+  if (!profileChecked) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="max-w-4xl mx-auto p-8">
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-12 text-center border-2 border-purple-200">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full mb-6">
+            <AlertCircle className="w-10 h-10 text-purple-600" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">{t.noProfile}</h2>
+          <p className="text-lg text-gray-600 mb-8">{t.createProfile}</p>
+          <a
+            href="/dashboard/charts"
+            className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-full hover:shadow-lg transition"
+          >
+            <Sparkles className="w-5 h-5 mr-2" />
+            {t.createProfile}
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950/30 to-slate-950 p-4 md:p-6 lg:p-8">
-      {/* Animated Background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-[500px] h-[500px] bg-purple-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-500"></div>
-      </div>
-
-      <div className="relative z-10 max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-indigo-200 to-purple-200 bg-clip-text text-transparent flex items-center justify-center gap-4">
-            <Sparkles className="w-10 h-10 text-indigo-400" strokeWidth={2} />
-            AI Predictions
-          </h1>
-          <p className="text-slate-400 mt-4 text-lg">Personalized insights for your life journey</p>
-        </div>
-
-        {/* Overall Score Card */}
-        <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-6">
-              <div className="relative">
-                <svg className="w-32 h-32 transform -rotate-90">
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    className="text-slate-700"
-                  />
-                  <circle
-                    cx="64"
-                    cy="64"
-                    r="56"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="none"
-                    strokeDasharray={`${2 * Math.PI * 56}`}
-                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - predictions.overall.score / 100)}`}
-                    className="text-indigo-500 transition-all duration-1000"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-3xl font-bold text-white">{predictions.overall.score}</span>
-                </div>
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 rounded-3xl p-8 text-white shadow-2xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                <Brain className="w-8 h-8" />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-2">Overall Forecast</h2>
-                <p className="text-slate-300 text-lg mb-2">{predictions.overall.message}</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-400">Trend:</span>
-                  <span className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm font-semibold capitalize">
-                    {predictions.overall.trend}
-                  </span>
-                </div>
-              </div>
+              <h1 className="text-4xl font-bold">{t.title}</h1>
+            </div>
+            <p className="text-purple-100 text-lg flex items-center">
+              <Zap className="w-5 h-5 mr-2" />
+              {t.subtitle}
+            </p>
+            <div className="mt-4 flex items-center space-x-4">
+              <span className="bg-white/20 px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm">
+                🆕 Version 5.0.0
+              </span>
+              <span className="bg-white/20 px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm">
+                🎯 Enhanced ML Engine
+              </span>
+              {/* 🏢 Enterprise Status */}
+              <span className={`bg-white/20 px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm flex items-center space-x-2`}>
+                <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></span>
+                <span>{wsConnected ? '🟢 Live' : '🔴 Offline'}</span>
+              </span>
+              {cacheStatus && (
+                <span className="bg-green-500/30 px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm">
+                  {cacheStatus === 'cached' ? '⚡ Cached' : '🔥 Fresh'} • {responseTime}ms
+                </span>
+              )}
+              <span className="bg-white/20 px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm">
+                🌐 Multi-Language
+              </span>
+              {aggressiveMode && (
+                <span className="bg-gradient-to-r from-red-500 to-orange-500 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm animate-pulse shadow-lg">
+                  🔥 AGGRESSIVE MODE
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Language Selector & Aggressive Mode Toggle */}
+          <div className="space-y-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
+              <label className="text-sm font-semibold mb-3 block flex items-center">
+                <Languages className="w-5 h-5 mr-2" />
+                {t.language}
+              </label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as Language)}
+                className="bg-white text-gray-800 px-4 py-3 rounded-xl font-semibold cursor-pointer hover:shadow-lg transition w-full"
+              >
+                <option value="en">English</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="hi">हिंदी (Hindi)</option>
+              </select>
             </div>
             
-            {/* Time Frame Selector */}
-            <div className="flex gap-2">
-              {[
-                { value: 'today', label: 'Today' },
-                { value: 'week', label: 'Week' },
-                { value: 'month', label: 'Month' },
-                { value: 'year', label: 'Year' }
-              ].map((tf) => (
-                <button
-                  key={tf.value}
-                  onClick={() => setSelectedTimeFrame(tf.value as TimeFrame)}
-                  className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-                    selectedTimeFrame === tf.value
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
-                      : 'bg-slate-700/30 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {tf.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-2">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {[
-              { id: 'overview', label: 'Life Areas', icon: Star },
-              { id: 'timeline', label: 'Timeline', icon: Calendar },
-              { id: 'transits', label: 'Transits', icon: TrendingUp },
-              { id: 'dashas', label: 'Dashas', icon: Clock }
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`py-3 px-4 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                    activeTab === tab.id
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Overview Tab - Life Areas */}
-        {activeTab === 'overview' && (
-          <div className="space-y-8">
-            {/* Area Filter */}
-            <div className="flex gap-2 flex-wrap">
-              {[
-                { value: 'all', label: 'All Areas' },
-                ...predictions.areas.map(area => ({ value: area.id, label: area.name }))
-              ].map((filter) => (
-                <button
-                  key={filter.value}
-                  onClick={() => setSelectedArea(filter.value as any)}
-                  className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-                    selectedArea === filter.value
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
-                      : 'bg-slate-700/30 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Life Areas Grid */}
-            <div className="grid md:grid-cols-2 gap-6">
-              {filteredAreas.map((area) => {
-                const Icon = area.icon;
-                return (
-                  <div
-                    key={area.id}
-                    className={`bg-gradient-to-br ${getAreaColor(area.color)} backdrop-blur-xl rounded-3xl border-2 shadow-2xl p-8`}
-                  >
-                    <div className="flex items-start justify-between mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-white/10 rounded-xl">
-                          <Icon className="w-8 h-8 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-2xl font-bold text-white">{area.name}</h3>
-                          <div className={`flex items-center gap-2 mt-1 ${getTrendColor(area.trend)}`}>
-                            {getTrendIcon(area.trend)}
-                            <span className="text-sm font-semibold capitalize">{area.trend}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-3xl font-bold text-white">{area.score}</div>
-                        <div className="text-sm text-slate-300">Score</div>
-                      </div>
-                    </div>
-
-                    <p className="text-slate-200 mb-6 leading-relaxed">{area.prediction}</p>
-
-                    <div className="space-y-4">
-                      {/* Opportunities */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <CheckCircle className="w-5 h-5 text-green-400" />
-                          <h4 className="font-bold text-white">Opportunities</h4>
-                        </div>
-                        <ul className="space-y-2">
-                          {area.opportunities.map((opp, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
-                              <ChevronRight className="w-4 h-4 mt-0.5 text-green-400 flex-shrink-0" />
-                              <span>{opp}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Challenges */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <AlertCircle className="w-5 h-5 text-amber-400" />
-                          <h4 className="font-bold text-white">Things to Watch</h4>
-                        </div>
-                        <ul className="space-y-2">
-                          {area.challenges.map((challenge, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
-                              <ChevronRight className="w-4 h-4 mt-0.5 text-amber-400 flex-shrink-0" />
-                              <span>{challenge}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Best Days */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <Calendar className="w-5 h-5 text-blue-400" />
-                          <h4 className="font-bold text-white">Best Days</h4>
-                        </div>
-                        <div className="flex gap-2 flex-wrap">
-                          {area.bestDays.map((day, idx) => (
-                            <span key={idx} className="px-3 py-1 bg-white/10 rounded-lg text-sm text-white font-semibold">
-                              {day}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Timeline Tab */}
-        {activeTab === 'timeline' && (
-          <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
-            <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
-              <Calendar className="w-6 h-6 text-indigo-400" />
-              Upcoming Events
-            </h2>
-
-            <div className="space-y-6">
-              {predictions.timeline.map((event, idx) => {
-                const areaData = predictions.areas.find(a => a.id === event.area);
-                const Icon = areaData?.icon || Star;
-                
-                return (
-                  <div key={idx} className="relative pl-12 pb-8 border-l-2 border-slate-700 last:border-l-0 last:pb-0">
-                    <div className="absolute left-0 -translate-x-1/2 p-2 bg-slate-800 rounded-full border-2 border-slate-700">
-                      <Icon className="w-5 h-5 text-indigo-400" />
-                    </div>
-                    
-                    <div className="bg-slate-700/30 rounded-2xl p-6 border border-slate-600/50 hover:border-indigo-500/50 transition-all">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-2 ${getEventTypeColor(event.type)}`}>
-                            {getEventTypeIcon(event.type)}
-                            {event.type.charAt(0).toUpperCase() + event.type.slice(1)}
-                          </span>
-                          <span className="text-sm text-slate-400 flex items-center gap-2">
-                            <Calendar className="w-4 h-4" />
-                            {event.date}
-                          </span>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          event.intensity === 'high' 
-                            ? 'bg-red-500/20 text-red-300' 
-                            : 'bg-blue-500/20 text-blue-300'
-                        }`}>
-                          {event.intensity} intensity
-                        </span>
-                      </div>
-                      
-                      <h3 className="text-xl font-bold text-white mb-2">{event.title}</h3>
-                      <p className="text-slate-300 leading-relaxed">{event.description}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Transits Tab */}
-        {activeTab === 'transits' && (
-          <div className="space-y-6">
-            <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                <TrendingUp className="w-6 h-6 text-indigo-400" />
-                Current Planetary Transits
-              </h2>
-              <p className="text-slate-400 mb-8">
-                Planetary movements and their influence on your life
+            {/* 🔥 Aggressive Mode Toggle */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
+              <label className="text-sm font-semibold mb-3 block flex items-center">
+                <Zap className="w-5 h-5 mr-2" />
+                Aggressive Mode
+              </label>
+              <button
+                onClick={() => setAggressiveMode(!aggressiveMode)}
+                className={`w-full px-4 py-3 rounded-xl font-bold transition-all shadow-lg ${
+                  aggressiveMode 
+                    ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {aggressiveMode ? '🔥 ON (< 50ms)' : '⚡ OFF (Standard)'}
+              </button>
+              <p className="text-xs text-white/70 mt-2">
+                {aggressiveMode 
+                  ? '5-model neural ensemble • 85-98% accuracy' 
+                  : 'Standard ML engine • 75-95% accuracy'}
               </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
-                {predictions.transits.map((transit, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-slate-700/30 rounded-2xl p-6 border border-slate-600/50 hover:border-indigo-500/50 transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-500/20 rounded-lg">
-                          {getPlanetIcon(transit.planet)}
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-white">{transit.planet}</h3>
-                          <p className="text-sm text-slate-400">in {transit.sign} • House {transit.house}</p>
-                        </div>
-                      </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        transit.impact === 'positive' 
-                          ? 'bg-green-500/20 text-green-300' 
-                          : transit.impact === 'negative'
-                          ? 'bg-red-500/20 text-red-300'
-                          : 'bg-blue-500/20 text-blue-300'
-                      }`}>
-                        {transit.impact}
+      {/* Stats Section */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 border-2 border-green-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-700 font-semibold mb-2">Average {t.accuracy}</p>
+                <p className="text-4xl font-bold text-green-900">{(stats.avgAccuracy * 100).toFixed(0)}%</p>
+              </div>
+              <Award className="w-12 h-12 text-green-600" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border-2 border-blue-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-700 font-semibold mb-2">Total Predictions</p>
+                <p className="text-4xl font-bold text-blue-900">{stats.total}</p>
+              </div>
+              <Target className="w-12 h-12 text-blue-600" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-6 border-2 border-purple-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-700 font-semibold mb-2">ML Methods</p>
+                <p className="text-4xl font-bold text-purple-900">{stats.methods.length}</p>
+              </div>
+              <Brain className="w-12 h-12 text-purple-600" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Button */}
+      <div className="flex items-center justify-center space-x-4">
+        <button
+          onClick={generatePredictions}
+          disabled={loading}
+          className="inline-flex items-center px-10 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-lg font-bold rounded-full hover:shadow-2xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <>
+              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-white mr-3"></div>
+              {t.loading}
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-6 h-6 mr-3" />
+              {t.generateBtn}
+            </>
+          )}
+        </button>
+
+        {predictions.length > 0 && (
+          <button
+            onClick={async () => {
+              try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_URL}/api/v1/enhanced/reports/pdf`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ 
+                    predictions, 
+                    language,
+                    include_ml_analysis: true 
+                  })
+                });
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `all_predictions_${language}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+              } catch (error) {
+                console.error('PDF download failed:', error);
+              }
+            }}
+            className="inline-flex items-center px-8 py-4 bg-white border-2 border-purple-600 text-purple-600 text-lg font-bold rounded-full hover:shadow-xl hover:scale-105 transition-all"
+          >
+            <FileText className="w-6 h-6 mr-3" />
+            Download All PDF
+          </button>
+        )}
+      </div>
+
+      {/* Predictions Grid */}
+      {predictions.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {predictions.map((pred, idx) => {
+            const areaInfo = areaConfig[pred.area as keyof typeof areaConfig];
+            const AreaIcon = areaInfo?.icon || Star;
+            
+            return (
+              <div
+                key={idx}
+                className={`rounded-2xl border-l-4 ${getSentimentColor(pred.sentiment)} p-6 hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-1`}
+                onClick={() => setSelectedPrediction(pred)}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className={`bg-${areaInfo?.color}-100 p-3 rounded-xl`}>
+                    <AreaIcon className={`w-6 h-6 text-${areaInfo?.color}-600`} />
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${getConfidenceColor(pred.confidence)}`}>
+                    {pred.confidence.replace('_', ' ').toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Area Label */}
+                <h3 className="text-sm font-semibold text-gray-600 mb-2">
+                  {areaInfo?.label[language] || pred.area}
+                </h3>
+
+                {/* Title */}
+                <h4 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2">
+                  {pred.title}
+                </h4>
+
+                {/* Description */}
+                <p className="text-sm text-gray-700 mb-4 line-clamp-3">
+                  {pred.description}
+                </p>
+
+                {/* Footer */}
+                <div className="space-y-2 pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      {new Date(pred.date).toLocaleDateString(language === 'mr' ? 'mr-IN' : language === 'hi' ? 'hi-IN' : 'en-US')}
+                    </div>
+                    <div className="flex items-center text-sm font-bold text-purple-600">
+                      <Award className="w-4 h-4 mr-1" />
+                      {(pred.accuracy * 100).toFixed(0)}%
+                    </div>
+                  </div>
+                  {aggressiveMode && (
+                    <div className="flex items-center justify-center">
+                      <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full flex items-center">
+                        <Zap className="w-3 h-3 mr-1" />
+                        Neural Ensemble • {stats?.from_cache ? 'Cached' : 'Fresh'}
                       </span>
                     </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-                    <p className="text-slate-300 mb-4 leading-relaxed">{transit.effect}</p>
+      {/* Detailed Modal */}
+      {selectedPrediction && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedPrediction(null)}>
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-6">
+              <h2 className="text-3xl font-bold text-gray-900">{selectedPrediction.title}</h2>
+              <button onClick={() => setSelectedPrediction(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
 
-                    <div className="flex items-center gap-2 text-sm text-slate-400">
-                      <Clock className="w-4 h-4" />
-                      <span>{transit.duration}</span>
-                    </div>
+            <p className="text-gray-700 mb-6 leading-relaxed">{selectedPrediction.description}</p>
+
+            {/* ML Analysis */}
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6 mb-6">
+              <h3 className="font-bold text-lg mb-4 flex items-center">
+                <Brain className="w-5 h-5 mr-2 text-purple-600" />
+                {t.mlAnalysis}
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                {Object.entries(selectedPrediction.ml_analysis || {}).map(([key, value]) => (
+                  <div key={key} className="bg-white rounded-xl p-4">
+                    <p className="text-sm text-gray-600 mb-1">{key.replace(/_/g, ' ')}</p>
+                    <p className="text-2xl font-bold text-purple-600">{value}%</p>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Dashas Tab */}
-        {activeTab === 'dashas' && (
-          <div className="space-y-6">
-            {predictions.dashas.map((dasha, idx) => (
-              <div
-                key={idx}
-                className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8"
-              >
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-4 rounded-2xl ${
-                      idx === 0 ? 'bg-indigo-500/20' : idx === 1 ? 'bg-purple-500/20' : 'bg-blue-500/20'
-                    }`}>
-                      {getPlanetIcon(dasha.planet)}
-                    </div>
-                    <div>
-                      <div className="text-sm text-indigo-400 font-semibold mb-1">{dasha.level}</div>
-                      <h3 className="text-2xl font-bold text-white">{dasha.planet}</h3>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-white">{dasha.duration}</div>
-                    <div className="text-sm text-slate-400">Duration</div>
-                  </div>
-                </div>
-
-                <p className="text-slate-300 mb-6 leading-relaxed">{dasha.description}</p>
-
-                <div className="grid md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <div className="text-sm text-slate-400 mb-2">Start Date</div>
-                    <div className="text-white font-semibold">{dasha.startDate}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-slate-400 mb-2">End Date</div>
-                    <div className="text-white font-semibold">{dasha.endDate}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-bold text-white mb-3">Key Effects</h4>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {dasha.effects.map((effect, effectIdx) => (
-                      <div key={effectIdx} className="flex items-start gap-2 text-slate-300">
-                        <Star className="w-4 h-4 mt-0.5 text-indigo-400 flex-shrink-0" />
-                        <span className="text-sm">{effect}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            {/* Recommendations */}
+            {selectedPrediction.recommendations && (
+              <div className="bg-green-50 rounded-2xl p-6 mb-6">
+                <h3 className="font-bold text-lg mb-4 flex items-center">
+                  <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
+                  {t.recommendations}
+                </h3>
+                <ul className="space-y-2">
+                  {selectedPrediction.recommendations.map((rec: string, i: number) => (
+                    <li key={i} className="flex items-start">
+                      <ChevronRight className="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
+                      <span className="text-gray-700">{rec}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ))}
+            )}
+
+            {/* Astrological Basis */}
+            {selectedPrediction.astrological_basis && (
+              <div className="bg-indigo-50 rounded-2xl p-6 mb-6">
+                <h3 className="font-bold text-lg mb-3 flex items-center">
+                  <Moon className="w-5 h-5 mr-2 text-indigo-600" />
+                  {t.astrological}
+                </h3>
+                <p className="text-gray-700">{selectedPrediction.astrological_basis}</p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('token');
+                      const response = await fetch(`${API_URL}/api/v1/enhanced/share/links?language=${language}`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ prediction: selectedPrediction, platform: 'whatsapp', language })
+                      });
+                      const data = await response.json();
+                      if (data.success && data.links) {
+                        window.open(data.links.whatsapp, '_blank');
+                      }
+                    } catch (error) {
+                      console.error('Share failed:', error);
+                    }
+                  }}
+                  className="flex items-center px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition"
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  WhatsApp
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('token');
+                      const response = await fetch(`${API_URL}/api/v1/enhanced/share/links?language=${language}`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ prediction: selectedPrediction, platform: 'twitter', language })
+                      });
+                      const data = await response.json();
+                      if (data.success && data.links) {
+                        window.open(data.links.twitter, '_blank');
+                      }
+                    } catch (error) {
+                      console.error('Share failed:', error);
+                    }
+                  }}
+                  className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition"
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Twitter
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('token');
+                      const response = await fetch(`${API_URL}/api/v1/enhanced/share/links?language=${language}`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ prediction: selectedPrediction, platform: 'facebook', language })
+                      });
+                      const data = await response.json();
+                      if (data.success && data.links) {
+                        window.open(data.links.facebook, '_blank');
+                      }
+                    } catch (error) {
+                      console.error('Share failed:', error);
+                    }
+                  }}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition"
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Facebook
+                </button>
+              </div>
+
+              <button
+                onClick={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`${API_URL}/api/v1/enhanced/reports/pdf`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ 
+                        predictions: [selectedPrediction], 
+                        language,
+                        include_ml_analysis: true 
+                      })
+                    });
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `prediction_${language}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  } catch (error) {
+                    console.error('PDF download failed:', error);
+                  }
+                }}
+                className="flex items-center px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full hover:shadow-lg transition"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download PDF
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

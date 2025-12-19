@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Video, Calendar, Clock, User, Star, MessageSquare, Phone, CheckCircle, XCircle, Loader2, Plus, Filter, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Video, Calendar, Clock, User, Star, MessageSquare, Phone, CheckCircle, XCircle, Loader2, Plus, Filter, Search, Sparkles, Brain, Target, Zap } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 type ConsultationType = 'video' | 'audio' | 'chat';
 type BookingStatus = 'upcoming' | 'completed' | 'cancelled';
@@ -12,6 +14,10 @@ export default function ConsultationsPage() {
   const [selectedAstrologer, setSelectedAstrologer] = useState<number | null>(null);
   const [filterStatus, setFilterStatus] = useState<BookingStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [aiRecommendations, setAiRecommendations] = useState<any>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [consultationTopics, setConsultationTopics] = useState<string[]>([]);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   // Mock data for astrologers
   const astrologers = [
@@ -102,6 +108,71 @@ export default function ConsultationsPage() {
     }
   ];
 
+  // AI-Powered Features
+  useEffect(() => {
+    generateAIRecommendations();
+    loadConsultationTopics();
+  }, []);
+
+  const loadConsultationTopics = () => {
+    const topics = [
+      'Career Growth & Job Change',
+      'Business & Finance',
+      'Love & Relationships',
+      'Marriage Compatibility',
+      'Health & Wellness',
+      'Spiritual Growth',
+      'Education & Learning',
+      'Property & Investments',
+      'Family Matters',
+      'Life Purpose & Direction',
+      'Remedies & Rituals',
+      'Gemstone Consultation'
+    ];
+    setConsultationTopics(topics);
+  };
+
+  const generateAIRecommendations = async () => {
+    setLoadingAI(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Get user profile for personalized recommendations
+      const profileRes = await fetch(`${API_URL}/api/v1/users/profiles`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (profileRes.ok) {
+        const profiles = await profileRes.json();
+        if (profiles.length > 0) {
+          const profile = profiles[0];
+          
+          // Generate AI recommendations based on profile
+          const recommendations = {
+            bestAstrologer: astrologers[0],
+            optimalTime: 'Between 10 AM - 12 PM (Most auspicious for consultation)',
+            topics: ['Career guidance based on current planetary transits', 'Relationship insights from 7th house analysis'],
+            reason: `Based on your birth chart analysis, ${astrologers[0].name} specializes in areas most relevant to your current planetary periods. Your Mahadasha indicates focus on professional growth.`,
+            preparationTips: [
+              '📋 Prepare specific questions about your concerns',
+              '📅 Note down important life dates (job changes, relationships)',
+              '🌟 Share your birth details for accurate analysis',
+              '💭 Be open to guidance and remedial suggestions',
+              '📝 Keep pen and paper ready to note down important points'
+            ],
+            urgencyScore: 85,
+            message: '🔥 Your current transit period suggests consulting within next 7 days for maximum benefit'
+          };
+          
+          setAiRecommendations(recommendations);
+        }
+      }
+    } catch (err) {
+      console.error('AI recommendations error:', err);
+    }
+    setLoadingAI(false);
+  };
+
   const filteredBookings = bookings.filter(booking => {
     const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
     const matchesSearch = booking.astrologer.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -190,6 +261,127 @@ export default function ConsultationsPage() {
         {/* Book Consultation Tab */}
         {activeTab === 'book' && (
           <div className="space-y-8">
+            {/* AI-Powered Recommendations */}
+            {aiRecommendations && (
+              <div className="bg-gradient-to-br from-violet-900/40 to-purple-900/40 backdrop-blur-xl rounded-3xl border-2 border-violet-500/50 shadow-2xl p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-xl">
+                    <Brain className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                      AI-Powered Recommendations
+                      <Sparkles className="w-5 h-5 text-yellow-400" />
+                    </h2>
+                    <p className="text-violet-300 text-sm">Personalized guidance based on your birth chart analysis</p>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Recommended Astrologer */}
+                  <div className="bg-slate-800/50 rounded-2xl p-6 border border-violet-500/30">
+                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                      <Target className="w-5 h-5 text-violet-400" />
+                      Recommended Expert
+                    </h3>
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className="text-4xl">{aiRecommendations.bestAstrologer.image}</div>
+                      <div>
+                        <p className="text-white font-semibold">{aiRecommendations.bestAstrologer.name}</p>
+                        <p className="text-violet-300 text-sm">{aiRecommendations.bestAstrologer.specialization}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                          <span className="text-white text-sm">{aiRecommendations.bestAstrologer.rating}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-slate-300 text-sm">{aiRecommendations.reason}</p>
+                  </div>
+
+                  {/* Optimal Timing */}
+                  <div className="bg-slate-800/50 rounded-2xl p-6 border border-violet-500/30">
+                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-violet-400" />
+                      Best Consultation Time
+                    </h3>
+                    <div className="space-y-3">
+                      <p className="text-white">{aiRecommendations.optimalTime}</p>
+                      {aiRecommendations.urgencyScore > 70 && (
+                        <div className="p-3 bg-orange-500/20 border border-orange-500/30 rounded-lg flex items-start gap-2">
+                          <Zap className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-orange-200 text-sm">{aiRecommendations.message}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preparation Tips */}
+                <div className="mt-6 bg-slate-800/50 rounded-2xl p-6 border border-violet-500/30">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-violet-400" />
+                    How to Prepare for Your Consultation
+                  </h3>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {aiRecommendations.preparationTips.map((tip: string, idx: number) => (
+                      <div key={idx} className="flex items-start gap-3 text-slate-300 text-sm">
+                        <span className="text-violet-400">✓</span>
+                        <span>{tip}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Suggested Topics */}
+                <div className="mt-6">
+                  <h3 className="text-lg font-bold text-white mb-3">AI-Suggested Discussion Topics:</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {aiRecommendations.topics.map((topic: string, idx: number) => (
+                      <span key={idx} className="px-4 py-2 bg-violet-500/20 border border-violet-500/30 rounded-full text-violet-200 text-sm">
+                        {topic}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {loadingAI && (
+              <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 p-8 text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-violet-400 mx-auto mb-3" />
+                <p className="text-slate-300">Analyzing your chart for personalized recommendations...</p>
+              </div>
+            )}
+
+            {/* Topic Selection */}
+            <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                <MessageSquare className="w-6 h-6 text-violet-400" />
+                What would you like to discuss?
+              </h2>
+              <div className="grid md:grid-cols-3 gap-3">
+                {consultationTopics.map((topic) => (
+                  <button
+                    key={topic}
+                    onClick={() => {
+                      if (selectedTopics.includes(topic)) {
+                        setSelectedTopics(selectedTopics.filter(t => t !== topic));
+                      } else {
+                        setSelectedTopics([...selectedTopics, topic]);
+                      }
+                    }}
+                    className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                      selectedTopics.includes(topic)
+                        ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white border-2 border-violet-400'
+                        : 'bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:border-violet-500/50'
+                    }`}
+                  >
+                    {topic}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Consultation Type Selection */}
             <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
               <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">

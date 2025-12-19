@@ -32,29 +32,30 @@ class PalmReadingEngine:
     
     def analyze_palm(
         self,
-        image_path: str,
+        image,
         user_consent: bool = True
     ) -> Dict[str, Any]:
         """
         Analyze palm from image
         
         Args:
-            image_path: Path to palm image
+            image: OpenCV image (numpy array) or path to palm image
             user_consent: Explicit consent required
             
         Returns:
             Palm reading analysis
         """
         if not user_consent:
-            return {"error": "User consent required for biometric processing"}
+            return {"error": "User consent required for biometric processing", "hand_detected": False}
         
         if not self.hands:
-            return {"error": "MediaPipe not available"}
+            return {"error": "MediaPipe not available", "hand_detected": False}
         
-        # Read image
-        image = self.cv2.imread(image_path)
-        if image is None:
-            return {"error": "Could not read image"}
+        # Handle both file path and numpy array
+        if isinstance(image, str):
+            image = self.cv2.imread(image)
+            if image is None:
+                return {"error": "Could not read image", "hand_detected": False}
         
         # Convert to RGB
         image_rgb = self.cv2.cvtColor(image, self.cv2.COLOR_BGR2RGB)
@@ -63,7 +64,7 @@ class PalmReadingEngine:
         results = self.hands.process(image_rgb)
         
         if not results.multi_hand_landmarks:
-            return {"error": "No hand detected"}
+            return {"error": "No hand detected", "hand_detected": False}
         
         # Extract landmarks (21 points)
         landmarks = results.multi_hand_landmarks[0]
@@ -76,6 +77,7 @@ class PalmReadingEngine:
         interpretation = self._interpret_palm(features, handedness)
         
         return {
+            "hand_detected": True,
             "hand": handedness,
             "features": features,
             "interpretation": interpretation,

@@ -28,9 +28,12 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
-    logger.info("Starting Astor AI application...")
+    logger.info("=" * 60)
+    logger.info("🚀 Starting Astor AI Enterprise Platform")
+    logger.info("=" * 60)
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
+    logger.info(f"Version: {__version__}")
     
     # Initialize Redis connection
     try:
@@ -41,13 +44,20 @@ async def lifespan(app: FastAPI):
         logger.error(f"✗ Redis connection failed: {e}")
         raise
     
+    # Initialize enterprise cache layer
+    try:
+        from app.core.cache import cache_manager
+        logger.info("✓ Enterprise cache layer initialized")
+    except Exception as e:
+        logger.warning(f"⚠ Cache manager initialization failed: {e}")
+    
     # Initialize prediction cache
     try:
         from app.services.predictions.cache import PredictionCache
         _ = PredictionCache(redis_client=redis_client, ttl=3600)
         logger.info("✓ Prediction cache initialized")
     except Exception as e:
-        logger.warning(f"Cache initialization failed: {e}")
+        logger.warning(f"⚠ Prediction cache initialization failed: {e}")
     
     # Verify database connection
     try:
@@ -59,6 +69,23 @@ async def lifespan(app: FastAPI):
         logger.error(f"✗ Database connection failed: {e}")
         raise
     
+    # Start WebSocket transit update service
+    try:
+        from app.core.websocket import transit_service
+        import asyncio
+        asyncio.create_task(transit_service.start())
+        logger.info("✓ WebSocket transit service started")
+    except Exception as e:
+        logger.warning(f"⚠ WebSocket service failed to start: {e}")
+    
+    # Start heartbeat monitor
+    try:
+        from app.core.websocket import manager
+        asyncio.create_task(manager.heartbeat_check())
+        logger.info("✓ WebSocket heartbeat monitor started")
+    except Exception as e:
+        logger.warning(f"⚠ Heartbeat monitor failed: {e}")
+    
     # Check ephemeris data directory
     import os
     ephemeris_path = os.path.join(os.path.dirname(__file__), "..", "ephemeris")
@@ -68,24 +95,46 @@ async def lifespan(app: FastAPI):
         logger.warning(f"⚠ Ephemeris data directory empty or missing: {ephemeris_path}")
         logger.warning("  Charts may not work without Swiss Ephemeris files")
     
-    logger.info("=== Astor AI started successfully ===")
+    logger.info("=" * 60)
+    logger.info("✨ Enterprise Features Enabled:")
+    logger.info("  • Real-time WebSocket updates")
+    logger.info("  • Advanced Redis caching")
+    logger.info("  • Multi-tier rate limiting")
+    logger.info("  • Analytics & monitoring")
+    logger.info("  • Batch processing")
+    logger.info("  • Audit logging")
+    logger.info("=" * 60)
+    logger.info("🎉 Astor AI started successfully!")
+    logger.info("=" * 60)
     
     yield
     
     # Shutdown
-    logger.info("Shutting down Astor AI application...")
+    logger.info("=" * 60)
+    logger.info("🛑 Shutting down Astor AI Enterprise Platform...")
+    logger.info("=" * 60)
+    
+    # Stop WebSocket services
+    try:
+        from app.core.websocket import transit_service
+        transit_service.stop()
+        logger.info("✓ WebSocket services stopped")
+    except Exception as e:
+        logger.error(f"✗ Error stopping WebSocket services: {e}")
     
     # Close Redis connection
     try:
         await redis_client.close()
         logger.info("✓ Redis connection closed")
     except Exception as e:
-        logger.error(f"Error closing Redis: {e}")
+        logger.error(f"✗ Error closing Redis: {e}")
     
     # Close database connection
     await engine.dispose()
     logger.info("✓ Database connection closed")
-    logger.info("=== Astor AI shutdown complete ===")
+    logger.info("=" * 60)
+    logger.info("👋 Astor AI shutdown complete")
+    logger.info("=" * 60)
 
 
 # Create FastAPI application

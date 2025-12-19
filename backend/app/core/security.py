@@ -136,3 +136,44 @@ def require_role(required_role: str):
         return current_user
     
     return role_checker
+
+
+async def get_current_user_ws(token: str):
+    """
+    Get current user for WebSocket connections
+    Similar to get_current_user but without FastAPI dependencies
+    """
+    from app.models.models import User
+    from app.core.database import async_session_maker
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    payload = decode_token(token)
+    
+    if payload.get("type") != "access":
+        raise credentials_exception
+    
+    email: str = payload.get("sub")
+    if email is None:
+        raise credentials_exception
+    
+    # Fetch user from database
+    async with async_session_maker() as db:
+        stmt = select(User).where(User.email == email)
+        result = await db.execute(stmt)
+        user = result.scalars().first()
+        
+        if user is None:
+            raise credentials_exception
+        
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Inactive user"
+            )
+        
+        return user

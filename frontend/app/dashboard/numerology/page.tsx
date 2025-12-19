@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Calculator, Hash, Star, Users, Sparkles, Loader2, Heart, Briefcase, TrendingUp, Target, Zap, Mountain, Award, Calendar, BookOpen, Compass, Crown } from 'lucide-react';
+import { Calculator, Hash, Star, Users, Sparkles, Loader2, Heart, Briefcase, TrendingUp, Target, Zap, Mountain, Award, Calendar, BookOpen, Compass, Crown, AlertCircle, Lightbulb } from 'lucide-react';
+import { API_URL } from '@/app/config';
 
 export default function NumerologyPage() {
   const [loading, setLoading] = useState(false);
@@ -76,7 +77,7 @@ export default function NumerologyPage() {
       setResults(null);
       
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/api/v1/numerology-test?full_name=${encodeURIComponent(formData.name)}&birth_date=${formData.birthDate}&system=pythagorean`, {
+      const response = await fetch(`${API_URL}/api/v1/numerology-test?full_name=${encodeURIComponent(formData.name)}&birth_date=${formData.birthDate}&system=pythagorean`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -94,6 +95,291 @@ export default function NumerologyPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getDetailedNumberMeaning = (number: number, context: string) => {
+    const meanings: { [key: number]: { [key: string]: { title: string, description: string, strengths: string[], challenges: string[], advice: string } } } = {
+      1: {
+        life_path: {
+          title: '🌟 The Leader & Pioneer',
+          description: 'You are born to lead and innovate. Your path is about developing independence, courage, and original thinking. You have natural leadership abilities and a strong drive to achieve. Your journey involves learning to stand on your own, trust your instincts, and pioneer new directions.',
+          strengths: ['Natural leadership ability', 'Strong willpower and determination', 'Independent and self-reliant', 'Creative and original thinker', 'Courageous and pioneering spirit'],
+          challenges: ['Can be overly dominant or aggressive', 'May struggle with collaboration', 'Tendency towards self-centeredness', 'Impatience with others', 'Difficulty accepting help'],
+          advice: 'Balance your independence with teamwork. Your leadership shines brightest when you inspire others rather than dominate. Take calculated risks but remain humble. Your pioneering spirit can open doors for many.'
+        },
+        destiny: {
+          title: '👑 Destined for Leadership',
+          description: 'Your destiny is to be a trailblazer and inspire others through your achievements. You are meant to take charge, make important decisions, and create new pathways. Your name carries the energy of authority and innovation.',
+          strengths: ['Executive abilities', 'Natural authority', 'Innovative mindset', 'Confidence in decision-making', 'Ability to motivate others'],
+          challenges: ['Dealing with subordination', 'Sharing credit', 'Being patient with slower processes', 'Handling criticism'],
+          advice: 'Embrace positions of authority but lead with compassion. Your destiny unfolds when you use your power to uplift others while achieving personal ambitions.'
+        },
+        soul: {
+          title: '💫 Inner Drive for Achievement',
+          description: 'Deep inside, you crave independence and recognition. Your soul desires to be first, to achieve, and to make a unique mark on the world. You have an inner fire that pushes you towards excellence and distinction.',
+          strengths: ['Strong inner motivation', 'Clear sense of purpose', 'Self-confidence', 'Ambitious nature', 'Desire for excellence'],
+          challenges: ['Inner restlessness', 'Fear of failure', 'Need for constant validation', 'Difficulty relaxing'],
+          advice: 'Honor your need for achievement while finding inner peace. True success comes from within, not just external accomplishments.'
+        },
+        personality: {
+          title: '✨ The Confident Presence',
+          description: 'You project confidence, strength, and capability. Others see you as a leader and decision-maker. Your presence commands attention and respect.',
+          strengths: ['Strong first impression', 'Appears confident and capable', 'Natural charisma', 'Inspiring presence'],
+          challenges: ['May seem intimidating', 'Can appear too self-assured', 'Others might feel overshadowed'],
+          advice: 'Use your commanding presence wisely. Show vulnerability occasionally to help others connect with you more deeply.'
+        }
+      },
+      2: {
+        life_path: {
+          title: '🤝 The Diplomat & Peacemaker',
+          description: 'Your life path is about cooperation, harmony, and partnership. You are here to bring people together, mediate conflicts, and create balance. Your sensitivity and intuition are your greatest gifts. You excel in situations requiring tact, diplomacy, and emotional intelligence.',
+          strengths: ['Excellent mediator and peacemaker', 'Highly intuitive and sensitive', 'Natural cooperator', 'Patient and understanding', 'Great listener'],
+          challenges: ['Overly sensitive to criticism', 'Difficulty making decisions alone', 'Tendency to avoid conflict', 'Can be too dependent on others', 'May suppress own needs'],
+          advice: 'Your power lies in unity, not division. Trust your intuition and use your diplomatic skills to heal relationships. Learn to assert your needs while maintaining harmony.'
+        },
+        destiny: {
+          title: '💝 Destined for Partnership',
+          description: 'You are meant to work in partnership and bring people together. Your name vibration attracts situations requiring cooperation, diplomacy, and emotional sensitivity.',
+          strengths: ['Natural partnership ability', 'Diplomatic skills', 'Emotional intelligence', 'Ability to see both sides'],
+          challenges: ['Difficulty working alone', 'Over-compromise', 'Indecisiveness', 'Being taken for granted'],
+          advice: 'Your destiny flourishes in collaboration. Choose partnerships wisely and maintain healthy boundaries.'
+        },
+        soul: {
+          title: '❤️ Craving Connection',
+          description: 'Your soul deeply desires love, companionship, and meaningful relationships. You need to feel connected and understood. Harmony and peace are essential to your inner well-being.',
+          strengths: ['Deep capacity for love', 'Empathetic nature', 'Desire for harmony', 'Loyal and devoted'],
+          challenges: ['Fear of loneliness', 'Over-dependence', 'Avoiding necessary conflicts', 'Losing self in relationships'],
+          advice: 'Cultivate inner peace first. Your relationships thrive when you come from a place of wholeness, not neediness.'
+        },
+        personality: {
+          title: '🌸 The Gentle Soul',
+          description: 'Others perceive you as kind, gentle, and approachable. You have a calming presence that makes people feel safe and understood.',
+          strengths: ['Warm and friendly demeanor', 'Non-threatening presence', 'Easy to approach', 'Trustworthy impression'],
+          challenges: ['May seem too passive', 'Can be underestimated', 'Others might take advantage'],
+          advice: 'Your gentle nature is a strength. Stand firm when needed while maintaining your compassionate essence.'
+        }
+      },
+      3: {
+        life_path: {
+          title: '🎨 The Creative Communicator',
+          description: 'Your path is one of self-expression, creativity, and joy. You are here to inspire others through your artistic abilities, words, and optimistic outlook. Your life is about spreading joy, beauty, and inspiration.',
+          strengths: ['Highly creative and artistic', 'Excellent communicator', 'Natural entertainer', 'Optimistic and joyful', 'Inspiring to others'],
+          challenges: ['Scattered energy', 'Difficulty focusing', 'Tendency to be superficial', 'Avoiding serious matters', 'Over-sensitivity to criticism'],
+          advice: 'Channel your creative energy into meaningful projects. Your joy is contagious - use it to uplift others while staying grounded.'
+        },
+        destiny: {
+          title: '🎭 Born to Express',
+          description: 'Your destiny involves creative expression and communication. You are meant to bring beauty, joy, and inspiration into the world through your unique talents.',
+          strengths: ['Artistic talents', 'Communication skills', 'Social abilities', 'Natural performer'],
+          challenges: ['Staying focused', 'Taking things seriously', 'Completing projects', 'Managing finances'],
+          advice: 'Your creative gifts are meant to be shared. Develop discipline to support your inspiration.'
+        },
+        soul: {
+          title: '✨ Yearning for Expression',
+          description: 'Your soul craves self-expression and creative freedom. You need outlets for your imagination and feelings. Joy and beauty feed your spirit.',
+          strengths: ['Rich inner life', 'Creative imagination', 'Emotional depth', 'Love of beauty'],
+          challenges: ['Inner restlessness', 'Mood fluctuations', 'Difficulty with routine', 'Need for constant stimulation'],
+          advice: 'Honor your creative urges while building stability. Your inner child needs both freedom and structure.'
+        },
+        personality: {
+          title: '🌟 The Charming Optimist',
+          description: 'You radiate warmth, charm, and positivity. Others are drawn to your bright energy and creative spirit.',
+          strengths: ['Magnetic personality', 'Positive energy', 'Entertaining', 'Uplifting presence'],
+          challenges: ['May seem frivolous', 'Can appear unreliable', 'Others might not take you seriously'],
+          advice: 'Your charm opens doors. Show your depth and reliability to earn lasting respect.'
+        }
+      },
+      4: {
+        life_path: {
+          title: '🏗️ The Builder & Organizer',
+          description: 'Your path is about creating solid foundations, establishing order, and building lasting structures. You are here to bring stability, practicality, and discipline to your endeavors. Your steady, methodical approach creates enduring value.',
+          strengths: ['Practical and grounded', 'Excellent organizational skills', 'Disciplined and hardworking', 'Reliable and trustworthy', 'Attention to detail'],
+          challenges: ['Rigidity and inflexibility', 'Resistance to change', 'Workaholism', 'Limited thinking', 'Difficulty with spontaneity'],
+          advice: 'Your foundation-building skills are invaluable. Balance hard work with flexibility. Not everything needs to be perfect or controlled.'
+        },
+        destiny: {
+          title: '🎯 Destined to Build',
+          description: 'You are meant to create lasting structures, systems, and organizations. Your destiny involves bringing order, stability, and practical solutions to the world.',
+          strengths: ['Management abilities', 'Systematic thinking', 'Practical wisdom', 'Reliability'],
+          challenges: ['Resistance to new methods', 'Being too rigid', 'Overworking', 'Difficulty delegating'],
+          advice: 'Build your legacy with wisdom and adaptability. True strength includes the ability to bend without breaking.'
+        },
+        soul: {
+          title: '⚓ Craving Security',
+          description: 'Your soul desires stability, security, and order. You need to feel grounded and in control. Structure and predictability bring you peace.',
+          strengths: ['Inner stability', 'Strong values', 'Dedication', 'Sense of responsibility'],
+          challenges: ['Fear of chaos', 'Need for excessive control', 'Difficulty with uncertainty', 'Inner rigidity'],
+          advice: 'True security comes from inner strength, not external control. Practice trusting the process.'
+        },
+        personality: {
+          title: '💼 The Dependable Professional',
+          description: 'Others see you as reliable, practical, and trustworthy. You project an image of stability and competence.',
+          strengths: ['Professional appearance', 'Dependable impression', 'Organized demeanor', 'Inspires confidence'],
+          challenges: ['May seem boring or rigid', 'Can appear too serious', 'Others might find you inflexible'],
+          advice: 'Your dependability is valuable. Show your fun side occasionally to become more approachable.'
+        }
+      },
+      5: {
+        life_path: {
+          title: '🌍 The Freedom Seeker & Adventurer',
+          description: 'Your path is about freedom, change, and diverse experiences. You are here to explore, adapt, and help others embrace transformation. Your versatility and love of variety drive you to constantly learn and grow.',
+          strengths: ['Adaptable and versatile', 'Love of freedom and adventure', 'Quick learner', 'Excellent communicator', 'Progressive thinker'],
+          challenges: ['Restlessness and inconsistency', 'Difficulty with commitment', 'Impulsiveness', 'Scattered focus', 'Avoiding responsibility'],
+          advice: 'Your quest for freedom is valid, but true liberation includes responsibility. Ground your adventures with purpose.'
+        },
+        destiny: {
+          title: '✈️ Destined for Adventure',
+          description: 'You are meant to experience variety, change, and freedom. Your destiny involves breaking boundaries, exploring new frontiers, and helping others embrace change.',
+          strengths: ['Adaptability', 'Communication skills', 'Progressive thinking', 'Ability to inspire change'],
+          challenges: ['Commitment issues', 'Restlessness', 'Impulsive decisions', 'Lack of follow-through'],
+          advice: 'Embrace change as your teacher. Your freedom expands when you master both movement and presence.'
+        },
+        soul: {
+          title: '🦋 Yearning for Freedom',
+          description: 'Your soul craves freedom, variety, and new experiences. You need space to explore and cannot tolerate restriction. Adventure feeds your spirit.',
+          strengths: ['Adventurous spirit', 'Open-mindedness', 'Curiosity', 'Resilience'],
+          challenges: ['Inner restlessness', 'Fear of commitment', 'Difficulty settling', 'Escapism tendencies'],
+          advice: 'True freedom comes from inner liberation. External changes cannot satisfy an unfree mind.'
+        },
+        personality: {
+          title: '⚡ The Dynamic Presence',
+          description: 'You come across as exciting, unpredictable, and magnetic. Others are drawn to your energy and sense of adventure.',
+          strengths: ['Exciting presence', 'Charismatic energy', 'Interesting conversationalist', 'Inspiring'],
+          challenges: ['May seem unreliable', 'Can appear non-committal', 'Others might not trust you with serious matters'],
+          advice: 'Your dynamism attracts opportunities. Show your reliable side to build lasting connections.'
+        }
+      },
+      6: {
+        life_path: {
+          title: '💝 The Nurturer & Counselor',
+          description: 'Your path is about love, responsibility, and service. You are here to create harmony, heal relationships, and provide guidance. Your caring nature and sense of duty drive you to make the world a better place.',
+          strengths: ['Nurturing and compassionate', 'Strong sense of responsibility', 'Natural counselor', 'Creates harmony', 'Devoted to family and community'],
+          challenges: ['Tendency to interfere', 'Difficulty saying no', 'Perfectionism', 'Martyrdom', 'Over-responsibility'],
+          advice: 'Your caring heart is a gift. Remember that true service includes self-care. You cannot pour from an empty cup.'
+        },
+        destiny: {
+          title: '🏡 Destined to Serve',
+          description: 'You are meant to provide service, create beauty, and nurture others. Your destiny involves responsibility, teaching, and healing.',
+          strengths: ['Counseling abilities', 'Teaching skills', 'Creating beauty', 'Service orientation'],
+          challenges: ['Taking on too much', 'Perfectionist standards', 'Difficulty receiving', 'Sacrificing self'],
+          advice: 'Your service is most powerful when you serve from abundance, not depletion. Practice receiving.'
+        },
+        soul: {
+          title: '❤️‍🩹 Need to Nurture',
+          description: 'Your soul craves giving love and creating harmony. You need to feel useful and appreciated. Caring for others fulfills your deepest needs.',
+          strengths: ['Deep capacity to love', 'Desire to help', 'Empathetic nature', 'Need for beauty and harmony'],
+          challenges: ['Co-dependency risks', 'Neglecting self', 'Approval-seeking', 'Difficulty with boundaries'],
+          advice: 'Love yourself as deeply as you love others. Your worth is not dependent on what you do for others.'
+        },
+        personality: {
+          title: '🌺 The Caring Presence',
+          description: 'Others see you as caring, responsible, and trustworthy. You project warmth and make people feel safe.',
+          strengths: ['Warm and welcoming', 'Trustworthy appearance', 'Nurturing presence', 'Approachable'],
+          challenges: ['May be taken advantage of', 'Can seem too involved', 'Others might become dependent'],
+          advice: 'Your caring nature attracts those in need. Maintain boundaries to avoid burnout.'
+        }
+      },
+      7: {
+        life_path: {
+          title: '🔮 The Seeker & Mystic',
+          description: 'Your path is about seeking truth, wisdom, and spiritual understanding. You are here to analyze, contemplate, and discover deeper meanings. Your journey involves developing your intuition and inner knowledge.',
+          strengths: ['Analytical and perceptive', 'Strong intuition', 'Spiritual depth', 'Love of learning', 'Independent thinker'],
+          challenges: ['Tendency towards isolation', 'Difficulty trusting others', 'Perfectionism', 'Overthinking', 'Emotional aloofness'],
+          advice: 'Your quest for truth is noble. Balance solitude with connection. Share your wisdom to make it meaningful.'
+        },
+        destiny: {
+          title: '📚 Destined for Wisdom',
+          description: 'You are meant to seek knowledge, develop expertise, and share profound insights. Your destiny involves teaching, researching, or spiritual work.',
+          strengths: ['Research abilities', 'Teaching potential', 'Spiritual gifts', 'Analytical skills'],
+          challenges: ['Social isolation', 'Difficulty with practical matters', 'Perfectionist standards', 'Skepticism'],
+          advice: 'Your wisdom deepens through both study and experience. Ground your insights in practical application.'
+        },
+        soul: {
+          title: '🧘 Craving Understanding',
+          description: 'Your soul yearns for knowledge, truth, and spiritual connection. You need solitude to process and understand life deeply.',
+          strengths: ['Philosophical nature', 'Quest for truth', 'Spiritual awareness', 'Inner wisdom'],
+          challenges: ['Loneliness', 'Difficulty connecting emotionally', 'Over-analysis', 'Spiritual bypassing'],
+          advice: 'True wisdom integrates mind, heart, and spirit. Do not use knowledge to avoid feeling.'
+        },
+        personality: {
+          title: '🎓 The Wise Observer',
+          description: 'Others perceive you as intelligent, mysterious, and profound. You project an air of knowledge and depth.',
+          strengths: ['Intelligent impression', 'Intriguing presence', 'Appears knowledgeable', 'Respectable'],
+          challenges: ['May seem aloof or distant', 'Can appear judgmental', 'Others might find you intimidating'],
+          advice: 'Your depth is attractive. Show your human side to help others feel comfortable approaching you.'
+        }
+      },
+      8: {
+        life_path: {
+          title: '💼 The Powerhouse & Achiever',
+          description: 'Your path is about mastering the material world, achieving success, and exercising authority. You are here to build empires, create abundance, and demonstrate what is possible through determination and vision.',
+          strengths: ['Natural business sense', 'Leadership and authority', 'Ambitious and driven', 'Good judgment', 'Organized and efficient'],
+          challenges: ['Materialism', 'Workaholism', 'Abuse of power', 'Difficulty with emotions', 'Impatience'],
+          advice: 'Your power is meant to create positive change. Success with integrity creates lasting legacy. Balance ambition with compassion.'
+        },
+        destiny: {
+          title: '👑 Destined for Power',
+          description: 'You are meant to achieve material success, lead organizations, and make a significant impact. Your destiny involves authority, abundance, and influence.',
+          strengths: ['Executive abilities', 'Financial acumen', 'Leadership skills', 'Strategic thinking'],
+          challenges: ['Maintaining integrity', 'Balancing work and life', 'Avoiding manipulation', 'Sharing power'],
+          advice: 'Your success inspires others. Lead with ethics and use your power to elevate those around you.'
+        },
+        soul: {
+          title: '💎 Craving Achievement',
+          description: 'Your soul desires recognition, achievement, and material success. You need to feel powerful and accomplished. Building and creating fulfills you.',
+          strengths: ['Strong drive', 'Ambitious nature', 'Desire for excellence', 'Vision for success'],
+          challenges: ['Never feeling enough', 'Defining self by achievements', 'Difficulty relaxing', 'Fear of failure'],
+          advice: 'True power comes from inner confidence, not external achievements. Your worth is inherent.'
+        },
+        personality: {
+          title: '🏆 The Authority Figure',
+          description: 'Others see you as powerful, successful, and authoritative. You project confidence and capability.',
+          strengths: ['Commanding presence', 'Appears successful', 'Inspires confidence', 'Professional image'],
+          challenges: ['Can seem intimidating', 'May appear materialistic', 'Others might feel inadequate around you'],
+          advice: 'Your powerful presence is an asset. Show humility and accessibility to build genuine connections.'
+        }
+      },
+      9: {
+        life_path: {
+          title: '🌏 The Humanitarian & Healer',
+          description: 'Your path is about compassion, service, and completion. You are here to help humanity, embrace diversity, and facilitate transformation. Your journey involves developing universal love and letting go.',
+          strengths: ['Compassionate and humanitarian', 'Artistic and creative', 'Wise and understanding', 'Selfless service', 'Universal perspective'],
+          challenges: ['Difficulty with boundaries', 'Emotional overwhelm', 'Martyrdom', 'Difficulty letting go', 'Living in the past'],
+          advice: 'Your compassion can change the world. Practice discernment in your giving. Release what no longer serves.'
+        },
+        destiny: {
+          title: '🕊️ Destined to Serve Humanity',
+          description: 'You are meant to serve the greater good, heal others, and demonstrate universal love. Your destiny involves artistic expression, teaching, or humanitarian work.',
+          strengths: ['Healing abilities', 'Artistic talents', 'Teaching skills', 'Humanitarian vision'],
+          challenges: ['Personal relationships', 'Setting boundaries', 'Accepting endings', 'Avoiding martyrdom'],
+          advice: 'Your service is most effective when grounded in self-love. Fill your cup first, then give.'
+        },
+        soul: {
+          title: '💫 Yearning to Serve',
+          description: 'Your soul craves meaning, purpose, and opportunities to help others. You need to feel your life makes a difference. Compassion and understanding feed your spirit.',
+          strengths: ['Deep empathy', 'Desire to heal', 'Love for humanity', 'Spiritual awareness'],
+          challenges: ['Emotional overload', 'Absorbing others pain', 'Difficulty with self-focus', 'Struggle with completion'],
+          advice: 'Honor your compassionate nature while protecting your energy. You can only give what you have.'
+        },
+        personality: {
+          title: '🌈 The Compassionate Sage',
+          description: 'Others perceive you as wise, compassionate, and idealistic. You project an aura of understanding and acceptance.',
+          strengths: ['Approachable and kind', 'Non-judgmental presence', 'Inspiring idealism', 'Wise appearance'],
+          challenges: ['May be taken advantage of', 'Can seem impractical', 'Others might not take you seriously'],
+          advice: 'Your compassion attracts those in need. Maintain boundaries to sustain your energy for service.'
+        }
+      }
+    };
+
+    const defaultMeaning = {
+      title: '✨ Unique Vibration',
+      description: 'This number carries special energy and significance in your numerology chart.',
+      strengths: ['Unique qualities', 'Special abilities', 'Distinctive path'],
+      challenges: ['Understanding your path', 'Developing your gifts'],
+      advice: 'Explore the deeper meaning of this number in your life journey.'
+    };
+
+    return meanings[number]?.[context] || defaultMeaning;
   };
 
   const numerologyMeanings = [
@@ -292,7 +578,8 @@ export default function NumerologyPage() {
                     
                     const reduceToSingle = (num: number): number => {
                       while (num > 9) {
-                        num = num.toString().split('').reduce((a, b) => parseInt(a) + parseInt(b), 0);
+                        const digits = num.toString().split('');
+                        num = digits.reduce((sum, digit) => sum + parseInt(digit), 0);
                       }
                       return num;
                     };
@@ -371,6 +658,219 @@ export default function NumerologyPage() {
                     Year 1 starts new cycles, while Year 9 completes them. Understanding these patterns helps you align actions with cosmic timing 
                     for maximum success and fulfillment.
                   </p>
+                </div>
+
+                {/* Life Graph Visualization */}
+                <div className="mt-8 bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                  <h2 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
+                    <TrendingUp className="w-8 h-8 text-cyan-400" />
+                    Life Energy Graph - 9-Year Wave Pattern
+                  </h2>
+
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const birthDate = new Date(formData.birthDate);
+                    const startYear = currentYear - 4;
+                    
+                    const reduceToSingle = (num: number): number => {
+                      while (num > 9) {
+                        const digits = num.toString().split('');
+                        num = digits.reduce((sum, digit) => sum + parseInt(digit), 0);
+                      }
+                      return num;
+                    };
+
+                    const years = Array.from({ length: 9 }, (_, i) => {
+                      const year = startYear + i;
+                      const dayReduced = reduceToSingle(birthDate.getDate());
+                      const monthReduced = reduceToSingle(birthDate.getMonth() + 1);
+                      const yearReduced = reduceToSingle(year);
+                      const personalYear = reduceToSingle(dayReduced + monthReduced + yearReduced);
+                      return { year, personalYear, isCurrent: year === currentYear };
+                    });
+
+                    const maxValue = 9;
+                    const graphHeight = 300;
+
+                    return (
+                      <div className="space-y-6">
+                        {/* Graph */}
+                        <div className="relative bg-slate-900/50 rounded-2xl p-8 border border-slate-700/30">
+                          {/* Y-axis labels */}
+                          <div className="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between py-8 text-xs text-slate-400">
+                            {[9, 8, 7, 6, 5, 4, 3, 2, 1].map(val => (
+                              <div key={val} className="text-right pr-2">{val}</div>
+                            ))}
+                          </div>
+
+                          {/* Graph area */}
+                          <div className="ml-12 relative" style={{ height: `${graphHeight}px` }}>
+                            {/* Horizontal grid lines */}
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(val => (
+                              <div
+                                key={val}
+                                className="absolute left-0 right-0 border-t border-slate-700/30"
+                                style={{ bottom: `${((val - 1) / (maxValue - 1)) * 100}%` }}
+                              />
+                            ))}
+
+                            {/* Graph line and points */}
+                            <svg className="absolute inset-0 w-full h-full" style={{ overflow: 'visible' }}>
+                              <defs>
+                                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                  <stop offset="0%" stopColor="#a855f7" />
+                                  <stop offset="50%" stopColor="#ec4899" />
+                                  <stop offset="100%" stopColor="#f59e0b" />
+                                </linearGradient>
+                                <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                  <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
+                                  <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+                                </linearGradient>
+                              </defs>
+                              
+                              {/* Area under curve */}
+                              <path
+                                d={`
+                                  M 0 ${graphHeight}
+                                  ${years.map((item, idx) => {
+                                    const x = (idx / (years.length - 1)) * 100;
+                                    const y = graphHeight - ((item.personalYear - 1) / (maxValue - 1)) * graphHeight;
+                                    return `${idx === 0 ? 'M' : 'L'} ${x}% ${y}`;
+                                  }).join(' ')}
+                                  L 100% ${graphHeight}
+                                  Z
+                                `}
+                                fill="url(#areaGradient)"
+                              />
+
+                              {/* Line */}
+                              <path
+                                d={years.map((item, idx) => {
+                                  const x = (idx / (years.length - 1)) * 100;
+                                  const y = graphHeight - ((item.personalYear - 1) / (maxValue - 1)) * graphHeight;
+                                  return `${idx === 0 ? 'M' : 'L'} ${x}% ${y}`;
+                                }).join(' ')}
+                                fill="none"
+                                stroke="url(#lineGradient)"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+
+                              {/* Points */}
+                              {years.map((item, idx) => {
+                                const x = (idx / (years.length - 1)) * 100;
+                                const y = graphHeight - ((item.personalYear - 1) / (maxValue - 1)) * graphHeight;
+                                return (
+                                  <g key={idx}>
+                                    {item.isCurrent && (
+                                      <circle
+                                        cx={`${x}%`}
+                                        cy={y}
+                                        r="12"
+                                        fill="#a855f7"
+                                        opacity="0.2"
+                                      >
+                                        <animate
+                                          attributeName="r"
+                                          values="12;18;12"
+                                          dur="2s"
+                                          repeatCount="indefinite"
+                                        />
+                                      </circle>
+                                    )}
+                                    <circle
+                                      cx={`${x}%`}
+                                      cy={y}
+                                      r={item.isCurrent ? "8" : "6"}
+                                      fill={item.isCurrent ? "#a855f7" : "#64748b"}
+                                      stroke={item.isCurrent ? "#fff" : "#475569"}
+                                      strokeWidth="2"
+                                      className="transition-all hover:r-10"
+                                    />
+                                    <text
+                                      x={`${x}%`}
+                                      y={y}
+                                      dy="-15"
+                                      textAnchor="middle"
+                                      fill={item.isCurrent ? "#a855f7" : "#94a3b8"}
+                                      fontSize="14"
+                                      fontWeight={item.isCurrent ? "bold" : "normal"}
+                                    >
+                                      {item.personalYear}
+                                    </text>
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          </div>
+
+                          {/* X-axis labels */}
+                          <div className="ml-12 flex justify-between mt-4 text-xs text-slate-400">
+                            {years.map((item, idx) => (
+                              <div 
+                                key={idx} 
+                                className={`text-center ${item.isCurrent ? 'text-purple-400 font-bold' : ''}`}
+                              >
+                                {item.year}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Legend */}
+                        <div className="grid md:grid-cols-3 gap-4">
+                          <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 p-4 rounded-xl border border-purple-500/30">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                              <span className="text-purple-300 font-semibold">Current Year</span>
+                            </div>
+                            <p className="text-slate-400 text-xs">Your active energy cycle</p>
+                          </div>
+                          
+                          <div className="bg-gradient-to-br from-cyan-600/20 to-cyan-800/20 p-4 rounded-xl border border-cyan-500/30">
+                            <div className="flex items-center gap-2 mb-2">
+                              <TrendingUp className="w-4 h-4 text-cyan-400" />
+                              <span className="text-cyan-300 font-semibold">Rising Energy</span>
+                            </div>
+                            <p className="text-slate-400 text-xs">Numbers 1-5: Building momentum</p>
+                          </div>
+                          
+                          <div className="bg-gradient-to-br from-amber-600/20 to-amber-800/20 p-4 rounded-xl border border-amber-500/30">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Zap className="w-4 h-4 text-amber-400" />
+                              <span className="text-amber-300 font-semibold">Peak & Release</span>
+                            </div>
+                            <p className="text-slate-400 text-xs">Numbers 6-9: Achievement & completion</p>
+                          </div>
+                        </div>
+
+                        {/* Interpretation */}
+                        <div className="bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border border-indigo-500/20 rounded-2xl p-6">
+                          <h3 className="text-lg font-bold text-indigo-300 mb-3 flex items-center gap-2">
+                            <Compass className="w-5 h-5" />
+                            Reading Your Life Graph
+                          </h3>
+                          <div className="space-y-3 text-sm text-slate-300">
+                            <p>
+                              <strong className="text-indigo-400">Wave Pattern:</strong> Your life energy flows in natural waves. 
+                              Lower numbers (1-3) represent new beginnings and foundation building. Mid-range (4-6) brings stability and responsibility. 
+                              Higher numbers (7-9) offer wisdom, achievement, and completion.
+                            </p>
+                            <p>
+                              <strong className="text-indigo-400">Current Position:</strong> The highlighted point shows where you are now in your cycle. 
+                              Look at the trajectory - are you ascending (building energy) or descending (releasing and completing)? 
+                              This helps you understand whether to initiate or consolidate.
+                            </p>
+                            <p>
+                              <strong className="text-indigo-400">Planning Ahead:</strong> Use future years to plan major life decisions. 
+                              Year 1 is ideal for new ventures, Year 5 for changes, Year 8 for career moves, and Year 9 for letting go of what no longer serves you.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -500,78 +1000,217 @@ export default function NumerologyPage() {
               );
             })()}
 
-            {/* Insights Tab */}
+            {/* Insights Tab - Comprehensive AI-Powered Analysis */}
             {activeTab === 'compatibility' && (
               <div className="max-w-6xl mx-auto space-y-8">
-                {/* Detailed Number Interpretations */}
-                <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
-                  <h2 className="text-3xl font-bold text-white mb-8 flex items-center gap-3">
-                    <Compass className="w-8 h-8 text-purple-400" />
-                    Detailed Interpretations
-                  </h2>
-                  
-                  <div className="space-y-6">
-                    {results.life_path && (
-                      <div className="p-6 bg-gradient-to-r from-purple-600/10 to-purple-800/10 border border-purple-500/20 rounded-2xl">
-                        <h3 className="text-xl font-bold text-purple-200 mb-3 flex items-center gap-2">
-                          <Star className="w-5 h-5" />
-                          Life Path {results.life_path.number} - Your Journey
-                        </h3>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-3">{results.life_path.meaning}</p>
-                        {results.life_path.calculation && (
-                          <div className="text-xs text-purple-400 font-mono bg-purple-900/20 p-3 rounded-lg">
-                            Calculation: {results.life_path.calculation}
+                {/* Life Path Deep Dive */}
+                {results.life_path && (() => {
+                  const analysis = getDetailedNumberMeaning(results.life_path.number, 'life_path');
+                  return (
+                    <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                      <h2 className="text-3xl font-bold text-white mb-2">{analysis.title}</h2>
+                      <p className="text-purple-300 mb-6">Life Path {results.life_path.number}</p>
+                      
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-lg font-bold text-white mb-3">✨ Your Life Purpose</h3>
+                          <p className="text-slate-300 leading-relaxed">{analysis.description}</p>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="p-6 bg-gradient-to-br from-green-600/10 to-green-800/10 border border-green-500/20 rounded-2xl">
+                            <h4 className="text-md font-bold text-green-200 mb-3 flex items-center gap-2">
+                              💪 Your Strengths
+                            </h4>
+                            <ul className="space-y-2">
+                              {analysis.strengths.map((strength: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 text-sm flex items-start gap-2">
+                                  <span className="text-green-400">✓</span>
+                                  <span>{strength}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {results.expression && (
-                      <div className="p-6 bg-gradient-to-r from-pink-600/10 to-pink-800/10 border border-pink-500/20 rounded-2xl">
-                        <h3 className="text-xl font-bold text-pink-200 mb-3 flex items-center gap-2">
-                          <Sparkles className="w-5 h-5" />
-                          Expression {results.expression.number} - Your Talents
-                        </h3>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-3">{results.expression.meaning}</p>
-                        {results.expression.calculation && (
-                          <div className="text-xs text-pink-400 font-mono bg-pink-900/20 p-3 rounded-lg">
-                            Name Analysis: {results.expression.calculation}
+                          
+                          <div className="p-6 bg-gradient-to-br from-amber-600/10 to-amber-800/10 border border-amber-500/20 rounded-2xl">
+                            <h4 className="text-md font-bold text-amber-200 mb-3 flex items-center gap-2">
+                              ⚠️ Growth Areas
+                            </h4>
+                            <ul className="space-y-2">
+                              {analysis.challenges.map((challenge: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 text-sm flex items-start gap-2">
+                                  <span className="text-amber-400">•</span>
+                                  <span>{challenge}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
-                        )}
+                        </div>
+                        
+                        <div className="p-6 bg-gradient-to-r from-purple-600/10 to-pink-600/10 border border-purple-500/20 rounded-2xl">
+                          <h4 className="text-md font-bold text-purple-200 mb-3 flex items-center gap-2">
+                            💡 Wisdom & Guidance
+                          </h4>
+                          <p className="text-slate-300 text-sm leading-relaxed">{analysis.advice}</p>
+                        </div>
                       </div>
-                    )}
-                    
-                    {results.soul_urge && (
-                      <div className="p-6 bg-gradient-to-r from-blue-600/10 to-blue-800/10 border border-blue-500/20 rounded-2xl">
-                        <h3 className="text-xl font-bold text-blue-200 mb-3 flex items-center gap-2">
-                          <Heart className="w-5 h-5" />
-                          Soul Urge {results.soul_urge.number} - Your Desires
-                        </h3>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-3">{results.soul_urge.meaning}</p>
-                        {results.soul_urge.calculation && (
-                          <div className="text-xs text-blue-400 font-mono bg-blue-900/20 p-3 rounded-lg">
-                            Vowel Analysis: {results.soul_urge.calculation}
+                    </div>
+                  );
+                })()}
+
+                {/* Expression Number Analysis */}
+                {results.expression && (() => {
+                  const analysis = getDetailedNumberMeaning(results.expression.number, 'destiny');
+                  return (
+                    <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                      <h2 className="text-3xl font-bold text-white mb-2">{analysis.title}</h2>
+                      <p className="text-pink-300 mb-6">Expression/Destiny Number {results.expression.number}</p>
+                      
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-lg font-bold text-white mb-3">🎯 Your Destiny & Potential</h3>
+                          <p className="text-slate-300 leading-relaxed">{analysis.description}</p>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="p-6 bg-gradient-to-br from-green-600/10 to-green-800/10 border border-green-500/20 rounded-2xl">
+                            <h4 className="text-md font-bold text-green-200 mb-3">Natural Abilities</h4>
+                            <ul className="space-y-2">
+                              {analysis.strengths.map((strength: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 text-sm flex items-start gap-2">
+                                  <span className="text-green-400">✓</span>
+                                  <span>{strength}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {results.personality && (
-                      <div className="p-6 bg-gradient-to-r from-green-600/10 to-green-800/10 border border-green-500/20 rounded-2xl">
-                        <h3 className="text-xl font-bold text-green-200 mb-3 flex items-center gap-2">
-                          <Users className="w-5 h-5" />
-                          Personality {results.personality.number} - How Others See You
-                        </h3>
-                        <p className="text-slate-300 text-sm leading-relaxed mb-3">{results.personality.meaning}</p>
-                        {results.personality.calculation && (
-                          <div className="text-xs text-green-400 font-mono bg-green-900/20 p-3 rounded-lg">
-                            Consonant Analysis: {results.personality.calculation}
+                          
+                          <div className="p-6 bg-gradient-to-br from-amber-600/10 to-amber-800/10 border border-amber-500/20 rounded-2xl">
+                            <h4 className="text-md font-bold text-amber-200 mb-3">Obstacles to Master</h4>
+                            <ul className="space-y-2">
+                              {analysis.challenges.map((challenge: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 text-sm flex items-start gap-2">
+                                  <span className="text-amber-400">•</span>
+                                  <span>{challenge}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
-                        )}
+                        </div>
+                        
+                        <div className="p-6 bg-gradient-to-r from-pink-600/10 to-rose-600/10 border border-pink-500/20 rounded-2xl">
+                          <h4 className="text-md font-bold text-pink-200 mb-3">Path to Fulfillment</h4>
+                          <p className="text-slate-300 text-sm leading-relaxed">{analysis.advice}</p>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Soul Urge Deep Analysis */}
+                {results.soul_urge && (() => {
+                  const analysis = getDetailedNumberMeaning(results.soul_urge.number, 'soul');
+                  return (
+                    <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                      <h2 className="text-3xl font-bold text-white mb-2">{analysis.title}</h2>
+                      <p className="text-blue-300 mb-6">Soul Urge Number {results.soul_urge.number}</p>
+                      
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-lg font-bold text-white mb-3">❤️ Your Heart's Deepest Desires</h3>
+                          <p className="text-slate-300 leading-relaxed">{analysis.description}</p>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="p-6 bg-gradient-to-br from-green-600/10 to-green-800/10 border border-green-500/20 rounded-2xl">
+                            <h4 className="text-md font-bold text-green-200 mb-3">Inner Gifts</h4>
+                            <ul className="space-y-2">
+                              {analysis.strengths.map((strength: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 text-sm flex items-start gap-2">
+                                  <span className="text-green-400">✓</span>
+                                  <span>{strength}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          
+                          <div className="p-6 bg-gradient-to-br from-amber-600/10 to-amber-800/10 border border-amber-500/20 rounded-2xl">
+                            <h4 className="text-md font-bold text-amber-200 mb-3">Inner Struggles</h4>
+                            <ul className="space-y-2">
+                              {analysis.challenges.map((challenge: string, idx: number) => (
+                                <li key={idx} className="text-slate-300 text-sm flex items-start gap-2">
+                                  <span className="text-amber-400">•</span>
+                                  <span>{challenge}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                        
+                        <div className="p-6 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 border border-blue-500/20 rounded-2xl">
+                          <h4 className="text-md font-bold text-blue-200 mb-3">Nurturing Your Soul</h4>
+                          <p className="text-slate-300 text-sm leading-relaxed">{analysis.advice}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Personality Number Analysis */}
+                {results.personality && (() => {
+                  const analysis = getDetailedNumberMeaning(results.personality.number, 'personality');
+                  return (
+                    <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
+                      <h2 className="text-3xl font-bold text-white mb-2">{analysis.title}</h2>
+                      <p className="text-green-300 mb-6">Personality Number {results.personality.number}</p>
+                      <p className="text-slate-300 text-lg leading-relaxed mb-6">{analysis.description}</p>
+
+                      {/* Strengths and Challenges Grid */}
+                      <div className="grid md:grid-cols-2 gap-6 mb-6">
+                        {/* Strengths */}
+                        <div className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 p-6 rounded-2xl border border-green-700/50">
+                          <h3 className="text-xl font-bold text-green-300 mb-4 flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5" />
+                            Key Strengths
+                          </h3>
+                          <ul className="space-y-2">
+                            {analysis.strengths.map((strength, idx) => (
+                              <li key={idx} className="text-green-100 text-sm flex items-start gap-2">
+                                <span className="text-green-400 mt-1">✓</span>
+                                <span>{strength}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Challenges */}
+                        <div className="bg-gradient-to-br from-amber-900/30 to-orange-900/30 p-6 rounded-2xl border border-amber-700/50">
+                          <h3 className="text-xl font-bold text-amber-300 mb-4 flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5" />
+                            Growth Areas
+                          </h3>
+                          <ul className="space-y-2">
+                            {analysis.challenges.map((challenge, idx) => (
+                              <li key={idx} className="text-amber-100 text-sm flex items-start gap-2">
+                                <span className="text-amber-400 mt-1">!</span>
+                                <span>{challenge}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Personalized Advice */}
+                      <div className="bg-gradient-to-br from-purple-900/30 to-indigo-900/30 p-6 rounded-2xl border border-purple-700/50">
+                        <h3 className="text-xl font-bold text-purple-300 mb-3 flex items-center gap-2">
+                          <Lightbulb className="w-5 h-5" />
+                          Personalized Guidance
+                        </h3>
+                        <p className="text-purple-100 text-sm leading-relaxed">{analysis.advice}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Life Path Compatibility Guide */}
                 <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
@@ -645,21 +1284,18 @@ export default function NumerologyPage() {
                     const birthDate = new Date(formData.birthDate);
                     
                     // Calculate personal year for each year
-                    const dayReduced = parseInt(birthDate.getDate().toString().split('').reduce((a, b) => {
-                      const sum = parseInt(a) + parseInt(b);
-                      return sum > 9 ? sum.toString().split('').reduce((x, y) => parseInt(x) + parseInt(y), 0).toString() : sum.toString();
-                    }));
-                    const monthReduced = parseInt(birthDate.getMonth() + 1).toString().split('').reduce((a, b) => {
-                      const sum = parseInt(a) + parseInt(b);
-                      return sum > 9 ? sum.toString().split('').reduce((x, y) => parseInt(x) + parseInt(y), 0).toString() : sum.toString();
-                    }, '');
-                    const yearReduced = year.toString().split('').reduce((a, b) => {
-                      const sum = parseInt(a) + parseInt(b);
-                      return sum > 9 ? sum.toString().split('').reduce((x, y) => parseInt(x) + parseInt(y), 0).toString() : sum.toString();
-                    }, '');
+                    const reduceToSingle = (num: number): number => {
+                      while (num > 9) {
+                        const digits = num.toString().split('');
+                        num = digits.reduce((sum, digit) => sum + parseInt(digit), 0);
+                      }
+                      return num;
+                    };
                     
-                    const total = parseInt(dayReduced) + parseInt(monthReduced) + parseInt(yearReduced);
-                    const personalYear = total > 9 ? total.toString().split('').reduce((a, b) => parseInt(a) + parseInt(b), 0) : total;
+                    const dayReduced = reduceToSingle(birthDate.getDate());
+                    const monthReduced = reduceToSingle(birthDate.getMonth() + 1);
+                    const yearReduced = reduceToSingle(year);
+                    const personalYear = reduceToSingle(dayReduced + monthReduced + yearReduced);
                     
                     const isCurrent = year === currentYear;
                     
