@@ -37,6 +37,23 @@ const customJestConfig = {
     '<rootDir>/node_modules/',
     '<rootDir>/e2e/',
   ],
+  reporters: [
+    'default',
+    [
+      'jest-html-reporters',
+      {
+        publicPath: './test-reports',
+        filename: 'test-report.html',
+        pageTitle: 'AstroAI i18n - Test Report',
+        expand: true,
+        openReport: false,
+        darkTheme: true,
+        includeFailureMsg: true,
+        includeSuiteFailure: true,
+      },
+    ],
+  ],
+  testTimeout: 10000,
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

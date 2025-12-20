@@ -66,6 +66,17 @@ interface ChartData {
       current_mahadasha: any;
       current_antardasha: any;
     };
+    divisional_charts?: {
+      [key: string]: {
+        name: string;
+        positions: {
+          [planet: string]: {
+            longitude: number;
+            sign: string;
+          };
+        };
+      };
+    };
   };
   created_at: string;
 }
@@ -88,6 +99,7 @@ export default function ChartDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [chartStyle, setChartStyle] = useState<'north-indian' | 'south-indian' | 'western'>('north-indian');
+  const [divisionalChart, setDivisionalChart] = useState<'D1' | 'D7' | 'D9' | 'D10' | 'D12' | 'D30'>('D1');
   const [interpretation, setInterpretation] = useState<any>(null);
   const [interpretationLoading, setInterpretationLoading] = useState(false);
 
@@ -225,6 +237,34 @@ export default function ChartDetailPage() {
     return nakshatras[nakshatraIndex % 27];
   };
 
+  // Get planet positions based on selected divisional chart
+  const getCurrentPlanetPositions = () => {
+    if (divisionalChart === 'D1' || !chart?.json_payload?.divisional_charts) {
+      // Return original D1 positions
+      return chart?.json_payload?.planets || {};
+    }
+    
+    // Get divisional chart positions
+    const divChart = chart.json_payload.divisional_charts[divisionalChart];
+    if (!divChart || !divChart.positions) {
+      return chart?.json_payload?.planets || {};
+    }
+    
+    // Convert divisional positions back to the format expected by the chart renderer
+    const convertedPositions: any = {};
+    Object.entries(divChart.positions).forEach(([planetName, data]: [string, any]) => {
+      convertedPositions[planetName] = {
+        longitude: data.longitude,
+        latitude: 0,
+        distance: 0,
+        speed: 0,
+        retrograde: false
+      };
+    });
+    
+    return convertedPositions;
+  };
+
   const getPlanetEmoji = (planet: string) => {
     const emojis: { [key: string]: string } = {
       'Sun': '☉',
@@ -307,6 +347,22 @@ export default function ChartDetailPage() {
             </div>
           </div>
           <div className="flex gap-3">
+            {/* Divisional Chart Selector (Vedic only) */}
+            {chart.system === 'vedic' && (
+              <select
+                value={divisionalChart}
+                onChange={(e) => setDivisionalChart(e.target.value as 'D1' | 'D7' | 'D9' | 'D10' | 'D12' | 'D30')}
+                className="px-4 py-2.5 bg-gradient-to-br from-purple-800/60 to-purple-900/60 backdrop-blur-xl rounded-xl transition-all duration-300 border border-purple-700/50 shadow-lg hover:shadow-purple-500/20 text-white font-medium cursor-pointer hover:from-purple-700/60 hover:to-purple-800/60"
+              >
+                <option value="D1">D1 - Rasi (Main)</option>
+                <option value="D7">D7 - Saptamsa (Children)</option>
+                <option value="D9">D9 - Navamsa (Marriage)</option>
+                <option value="D10">D10 - Dasamsa (Career)</option>
+                <option value="D12">D12 - Dwadasamsa (Parents)</option>
+                <option value="D30">D30 - Trimsamsa (Misfortunes)</option>
+              </select>
+            )}
+            
             {/* Chart Style Dropdown */}
             <select
               value={chartStyle}
@@ -432,33 +488,33 @@ export default function ChartDetailPage() {
                   <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
                     <div className="text-xs text-slate-400 mb-1">Tithi</div>
                     <div className="text-white font-medium">
-                      {typeof chart.json_payload.panchang.tithi === 'object' 
-                        ? chart.json_payload.panchang.tithi.name 
-                        : chart.json_payload.panchang.tithi}
+                      {typeof chart.json_payload.panchang.tithi === 'object' && chart.json_payload.panchang.tithi !== null && 'name' in chart.json_payload.panchang.tithi
+                        ? (chart.json_payload.panchang.tithi as { name: string }).name
+                        : String(chart.json_payload.panchang.tithi)}
                     </div>
                   </div>
                   <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
                     <div className="text-xs text-slate-400 mb-1">Nakshatra</div>
                     <div className="text-white font-medium">
-                      {typeof chart.json_payload.panchang.nakshatra === 'object' 
-                        ? chart.json_payload.panchang.nakshatra.name 
-                        : chart.json_payload.panchang.nakshatra}
+                      {typeof chart.json_payload.panchang.nakshatra === 'object' && chart.json_payload.panchang.nakshatra !== null && 'name' in chart.json_payload.panchang.nakshatra
+                        ? (chart.json_payload.panchang.nakshatra as { name: string }).name 
+                        : String(chart.json_payload.panchang.nakshatra)}
                     </div>
                   </div>
                   <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
                     <div className="text-xs text-slate-400 mb-1">Yoga</div>
                     <div className="text-white font-medium">
-                      {typeof chart.json_payload.panchang.yoga === 'object' 
-                        ? chart.json_payload.panchang.yoga.name 
-                        : chart.json_payload.panchang.yoga}
+                      {typeof chart.json_payload.panchang.yoga === 'object' && chart.json_payload.panchang.yoga !== null && 'name' in chart.json_payload.panchang.yoga
+                        ? (chart.json_payload.panchang.yoga as { name: string }).name 
+                        : String(chart.json_payload.panchang.yoga)}
                     </div>
                   </div>
                   <div className="p-4 bg-slate-700/30 rounded-lg border border-slate-600/50">
                     <div className="text-xs text-slate-400 mb-1">Karana</div>
                     <div className="text-white font-medium">
-                      {typeof chart.json_payload.panchang.karana === 'object' 
-                        ? chart.json_payload.panchang.karana.name 
-                        : chart.json_payload.panchang.karana}
+                      {typeof chart.json_payload.panchang.karana === 'object' && chart.json_payload.panchang.karana !== null && 'name' in chart.json_payload.panchang.karana
+                        ? (chart.json_payload.panchang.karana as { name: string }).name 
+                        : String(chart.json_payload.panchang.karana)}
                     </div>
                   </div>
                 </div>
@@ -467,6 +523,15 @@ export default function ChartDetailPage() {
               {/* Chart Wheel - Dynamic based on selection */}
               <div>
                 <h3 className="text-2xl font-semibold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent mb-6">
+                  {divisionalChart !== 'D1' && chart.system === 'vedic' && (
+                    <span className="text-purple-400 mr-2">
+                      {divisionalChart === 'D7' && 'Saptamsa (D7) - Children & Progeny | '}
+                      {divisionalChart === 'D9' && 'Navamsa (D9) - Marriage & Spirituality | '}
+                      {divisionalChart === 'D10' && 'Dasamsa (D10) - Career & Profession | '}
+                      {divisionalChart === 'D12' && 'Dwadasamsa (D12) - Parents & Ancestors | '}
+                      {divisionalChart === 'D30' && 'Trimsamsa (D30) - Misfortunes & Evils | '}
+                    </span>
+                  )}
                   {chartStyle === 'north-indian' && 'Birth Chart (North Indian)'}
                   {chartStyle === 'south-indian' && 'Birth Chart (South Indian)'}
                   {chartStyle === 'western' && 'Birth Chart (Western Wheel)'}
@@ -478,8 +543,9 @@ export default function ChartDetailPage() {
                   <div className="relative w-full aspect-square bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border-4 border-amber-900 shadow-lg">
                     {/* Calculate planets in houses */}
                     {(() => {
+                      const currentPositions = getCurrentPlanetPositions();
                       const housePlanets: Record<number, string[]> = {};
-                      Object.entries(chart.json_payload.planets || {}).forEach(([name, data]: [string, any]) => {
+                      Object.entries(currentPositions).forEach(([name, data]: [string, any]) => {
                         const house = getHouseForPlanet(data.longitude, chart.json_payload.houses);
                         if (!housePlanets[house]) housePlanets[house] = [];
                         housePlanets[house].push(name);
@@ -580,8 +646,9 @@ export default function ChartDetailPage() {
                   {chartStyle === 'south-indian' && (
                     <div className="relative w-full aspect-square bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border-4 border-amber-900 shadow-lg">
                       {(() => {
+                        const currentPositions = getCurrentPlanetPositions();
                         const housePlanets: Record<number, string[]> = {};
-                        Object.entries(chart.json_payload.planets || {}).forEach(([name, data]: [string, any]) => {
+                        Object.entries(currentPositions).forEach(([name, data]: [string, any]) => {
                           const house = getHouseForPlanet(data.longitude, chart.json_payload.houses);
                           if (!housePlanets[house]) housePlanets[house] = [];
                           housePlanets[house].push(name);
@@ -590,18 +657,18 @@ export default function ChartDetailPage() {
                         // South Indian chart - Fixed house positions in 4x4 grid
                         // Houses are in fixed positions, signs rotate based on ascendant
                         const housePositions = [
-                          { house: 1, row: 3, col: 1 }, // Bottom-left to top-right diagonal
-                          { house: 2, row: 2, col: 0 },
-                          { house: 3, row: 1, col: 0 },
-                          { house: 4, row: 0, col: 1 },
-                          { house: 5, row: 0, col: 2 },
-                          { house: 6, row: 0, col: 3 },
-                          { house: 7, row: 1, col: 3 },
-                          { house: 8, row: 2, col: 3 },
-                          { house: 9, row: 3, col: 3 },
-                          { house: 10, row: 3, col: 2 },
-                          { house: 11, row: 3, col: 1 },
-                          { house: 12, row: 2, col: 1 },
+                          { house: 1, row: 2, col: 1 },  // Center-left (Lagna always here)
+                          { house: 2, row: 2, col: 0 },  // Left side
+                          { house: 3, row: 1, col: 0 },  // Top-left
+                          { house: 4, row: 0, col: 1 },  // Top center-left
+                          { house: 5, row: 0, col: 2 },  // Top center-right
+                          { house: 6, row: 0, col: 3 },  // Top-right
+                          { house: 7, row: 1, col: 3 },  // Right side top
+                          { house: 8, row: 2, col: 3 },  // Right side
+                          { house: 9, row: 3, col: 3 },  // Bottom-right
+                          { house: 10, row: 3, col: 2 }, // Bottom center-right
+                          { house: 11, row: 3, col: 1 }, // Bottom center-left
+                          { house: 12, row: 3, col: 0 }, // Bottom-left
                         ];
 
                         // Get ascendant sign to determine sign rotation
@@ -658,7 +725,7 @@ export default function ChartDetailPage() {
                                       {planets.length > 0 && (
                                         <div className="flex flex-wrap gap-0.5 justify-center items-center">
                                           {planets.slice(0, 3).map(planet => {
-                                            const planetData = chart.json_payload.planets[planet];
+                                            const planetData = currentPositions[planet];
                                             const isRetrograde = planetData?.retrograde;
                                             return (
                                               <div
@@ -767,23 +834,27 @@ export default function ChartDetailPage() {
                         })}
                         
                         {/* Plot planets */}
-                        {Object.entries(chart.json_payload.planets).map(([planet, data]) => {
-                          if (!data) return null;
-                          
-                          // Convert longitude to angle (0° = Aries start = top of wheel, clockwise)
-                          const planetAngle = (data.longitude - 90) * (Math.PI / 180);
-                          const radius = 110; // Distance from center
-                          const x = 200 + radius * Math.cos(planetAngle);
-                          const y = 200 + radius * Math.sin(planetAngle);
-                          
-                          const planetEmojis: Record<string, string> = {
-                            sun: '☉', moon: '☽', mercury: '☿', venus: '♀',
-                            mars: '♂', jupiter: '♃', saturn: '♄',
-                            uranus: '♅', neptune: '♆', pluto: '♇',
-                            rahu: '☊', ketu: '☋'
+                        {(() => {
+                          const currentPositions = getCurrentPlanetPositions();
+                          return Object.entries(currentPositions).map(([planet, data]) => {
+                            if (!data || typeof data !== 'object' || !('longitude' in data)) return null;
+                            
+                            const planetData = data as { longitude: number; retrograde?: boolean };
+                            
+                            // Convert longitude to angle (0° = Aries start = top of wheel, clockwise)
+                            const planetAngle = (planetData.longitude - 90) * (Math.PI / 180);
+                            const radius = 110; // Distance from center
+                            const x = 200 + radius * Math.cos(planetAngle);
+                            const y = 200 + radius * Math.sin(planetAngle);
+                            
+                            const planetEmojis: Record<string, string> = {
+                              sun: '☉', moon: '☽', mercury: '☿', venus: '♀',
+                              mars: '♂', jupiter: '♃', saturn: '♄',
+                              uranus: '♅', neptune: '♆', pluto: '♇',
+                              rahu: '☊', ketu: '☋'
                           };
                           
-                          return (
+                            return (
                             <g key={planet}>
                               {/* Planet line from center */}
                               <line 
@@ -813,12 +884,12 @@ export default function ChartDetailPage() {
                                 fontWeight="bold"
                                 textAnchor="middle" 
                                 dominantBaseline="middle"
-                                title={`${planet}: ${data.longitude.toFixed(2)}°`}
                               >
+                                <title>{`${planet}: ${planetData.longitude.toFixed(2)}°`}</title>
                                 {planetEmojis[planet] || planet.charAt(0).toUpperCase()}
                               </text>
                               {/* Retrograde indicator */}
-                              {data.retrograde && (
+                              {planetData.retrograde && (
                                 <text 
                                   x={x + 15} 
                                   y={y - 10} 
@@ -831,7 +902,8 @@ export default function ChartDetailPage() {
                               )}
                             </g>
                           );
-                        })}
+                        });
+                        })()}
                         
                         {/* Ascendant marker (horizon line) */}
                         <g>

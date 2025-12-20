@@ -6,6 +6,9 @@ import {
   Zap, Award, BarChart3, ArrowRight, Sparkles, Loader2,
   Flame, Moon, Sun, Activity, Target
 } from 'lucide-react';
+import QuickStatsWidget from '../components/QuickStatsWidget';
+import ActivityTimeline from '../components/ActivityTimeline';
+import { useTranslations } from '../hooks/useTranslations';
 
 interface Stats {
   charts_count: number;
@@ -29,6 +32,7 @@ interface PanchangData {
 }
 
 export default function DashboardPage() {
+  const { dashboard } = useTranslations();
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
@@ -51,8 +55,24 @@ export default function DashboardPage() {
         return;
       }
 
-      // Note: Backend doesn't have stats endpoint yet, so stats will show 0
-      // This is intentional - no demo data
+      // Load dashboard statistics from analytics endpoint
+      try {
+        const statsRes = await fetch('/api/v1/analytics/dashboard', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (statsRes.ok) {
+          const data = await statsRes.json();
+          const overview = data.overview || {};
+          setStats({
+            charts_count: overview.charts_generated || 0,
+            predictions_count: overview.predictions_made || 0,
+            consultations_count: overview.consultations_booked || 0,
+            compatibility_count: overview.compatibility_checks || 0
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load stats:', error);
+      }
       
       // Load today's panchang (using default Mumbai coordinates)
       try {
@@ -74,8 +94,20 @@ export default function DashboardPage() {
         console.error('Failed to load panchang:', error);
       }
 
-      // Note: Predictions endpoint doesn't support listing all user predictions yet
-      // Will show empty state until user creates their first prediction
+      // Load recent predictions
+      try {
+        const predictionsRes = await fetch('/api/v1/events/?limit=5', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (predictionsRes.ok) {
+          const data = await predictionsRes.json();
+          if (Array.isArray(data)) {
+            setPredictions(data.slice(0, 5));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load predictions:', error);
+      }
       
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -85,10 +117,10 @@ export default function DashboardPage() {
   };
 
   const quickStats = [
-    { label: 'Birth Charts', value: stats?.charts_count || 0, change: '', icon: Star, color: 'purple' },
-    { label: 'Predictions', value: stats?.predictions_count || 0, change: '', icon: TrendingUp, color: 'blue' },
-    { label: 'Consultations', value: stats?.consultations_count || 0, change: '', icon: Users, color: 'green' },
-    { label: 'Compatibility', value: stats?.compatibility_count || 0, change: '', icon: Heart, color: 'pink' },
+    { label: dashboard.birthCharts || 'Birth Charts', value: stats?.charts_count || 0, change: '', icon: Star, color: 'purple' },
+    { label: dashboard.predictions || 'Predictions', value: stats?.predictions_count || 0, change: '', icon: TrendingUp, color: 'blue' },
+    { label: dashboard.consultations || 'Consultations', value: stats?.consultations_count || 0, change: '', icon: Users, color: 'green' },
+    { label: dashboard.compatibility || 'Compatibility', value: stats?.compatibility_count || 0, change: '', icon: Heart, color: 'pink' },
   ];
 
   if (loading) {
@@ -105,10 +137,10 @@ export default function DashboardPage() {
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-24 h-24 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur-xl animate-pulse"></div>
             </div>
-            <Loader2 className="w-16 h-16 text-white animate-spin relative z-10 mx-auto" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-2 animate-pulse">Loading Your Cosmic Dashboard</h2>
-          <p className="text-gray-400 text-lg">Aligning the stars...</p>
+          <Loader2 className="w-16 h-16 text-white animate-spin relative z-10 mx-auto" />
+        </div>
+        <h2 className="text-2xl font-bold text-white mb-2 animate-pulse">{dashboard.loading || 'Loading Your Cosmic Dashboard'}</h2>
+        <p className="text-gray-400 text-lg">{dashboard.aligningStars || 'Aligning the stars...'}</p>
         </div>
       </div>
     );
@@ -140,13 +172,13 @@ export default function DashboardPage() {
                 <Sun className="w-6 h-6 text-yellow-400 animate-pulse" style={{ animationDelay: '0.5s' }} />
                 <Star className="w-6 h-6 text-pink-400 animate-pulse" style={{ animationDelay: '1s' }} />
               </div>
-              <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Cosmic Dashboard</span>
+              <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">{dashboard.cosmicDashboard || 'Cosmic Dashboard'}</span>
             </div>
             <h1 className="text-5xl font-black text-white mb-3 bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent">
-              Welcome back, {user?.name || 'Seeker'}! ✨
+              {dashboard.welcome?.replace('{name}', user?.name || dashboard.seeker || 'Seeker') || `Welcome back, ${user?.name || 'Seeker'}! ✨`}
             </h1>
             <p className="text-gray-300 text-xl font-medium">
-              Your cosmic journey continues. Explore your predictions and insights.
+              {dashboard.subtitle || 'Your cosmic journey continues. Explore your predictions and insights.'}
             </p>
           </div>
           <div className="hidden lg:block animate-slideInFromRight">
@@ -204,6 +236,9 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Activity Stats Widget */}
+      <QuickStatsWidget />
 
       {/* Recent Activity & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -415,6 +450,11 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Activity Timeline */}
+      <div className="bg-gradient-to-br from-slate-800/40 to-slate-900/40 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 animate-slideInFromBottom" style={{ animationDelay: '1.2s' }}>
+        <ActivityTimeline maxItems={10} showFilters={true} />
       </div>
 
       {/* Upgrade Banner */}

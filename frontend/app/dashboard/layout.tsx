@@ -9,76 +9,97 @@ import {
   Search, Menu, X, LogOut, ChevronDown, Star, Zap,
   Shield, CreditCard, Globe, BookOpen, MessageSquare, HelpCircle
 } from 'lucide-react';
+import KeyboardShortcuts from '../components/KeyboardShortcuts';
+import NotificationCenter from '../components/NotificationCenter';
+import ThemeSwitcher from '../components/ThemeSwitcher';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import CommandPalette from '../components/CommandPalette';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { useTranslations } from '../hooks/useTranslations';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { nav, common } = useTranslations();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const pathname = usePathname();
+
+  // Keyboard shortcut for command palette (Cmd/Ctrl + K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const menuItems = [
     { 
       icon: LayoutDashboard, 
-      label: 'Dashboard', 
+      label: nav.dashboard || 'Dashboard', 
       href: '/dashboard',
       badge: null
     },
     { 
       icon: User, 
-      label: 'Birth Chart', 
+      label: nav.birthChart || 'Birth Chart', 
       href: '/dashboard/charts',
       badge: null
     },
     { 
       icon: TrendingUp, 
-      label: 'Predictions', 
+      label: nav.predictions || 'Predictions', 
       href: '/dashboard/predictions',
       badge: '3'
     },
     { 
       icon: Calendar, 
-      label: 'Panchang', 
+      label: nav.panchang || 'Panchang', 
       href: '/dashboard/panchang',
       badge: null
     },
     { 
       icon: Heart, 
-      label: 'Compatibility', 
+      label: nav.compatibility || 'Compatibility', 
       href: '/dashboard/compatibility',
       badge: null
     },
     { 
       icon: Users, 
-      label: 'Consultations', 
+      label: nav.consultations || 'Consultations', 
       href: '/dashboard/consultations',
       badge: '1'
     },
     { 
       icon: Star, 
-      label: 'Numerology', 
+      label: nav.numerology || 'Numerology', 
       href: '/dashboard/numerology',
       badge: null
     },
     { 
       icon: BarChart3, 
-      label: 'Life Events', 
+      label: nav.lifeEvents || 'Life Events', 
       href: '/dashboard/life-events',
       badge: null
     },
     { 
       icon: Globe, 
-      label: 'Face Reading', 
+      label: nav.faceReading || 'Face Reading', 
       href: '/dashboard/face-reading',
       badge: 'AI'
     },
     { 
       icon: BookOpen, 
-      label: 'Learning', 
+      label: nav.learning || 'Learning', 
       href: '/dashboard/learning',
       badge: null
     },
@@ -92,7 +113,8 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/30 to-slate-950">
+    <ThemeProvider>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950/30 to-slate-950">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-[500px] h-[500px] bg-gradient-to-br from-purple-600/15 via-pink-600/10 to-violet-600/15 rounded-full blur-3xl animate-pulse"></div>
@@ -169,18 +191,18 @@ export default function DashboardLayout({
               }`}
             >
               <Settings className="w-5 h-5 flex-shrink-0" />
-              {sidebarOpen && <span className="font-medium">Settings</span>}
+              {sidebarOpen && <span className="font-medium">{nav.settings || 'Settings'}</span>}
             </Link>
             
             {sidebarOpen && (
               <div className="mt-4 p-4 bg-gradient-to-br from-purple-600/20 to-pink-600/20 rounded-xl border border-purple-500/30">
                 <div className="flex items-center space-x-2 mb-2">
                   <Zap className="w-4 h-4 text-yellow-400" />
-                  <span className="text-sm font-bold text-white">Upgrade to Pro</span>
+                  <span className="text-sm font-bold text-white">{common.upgradeToPro || 'Upgrade to Pro'}</span>
                 </div>
-                <p className="text-xs text-gray-400 mb-3">Unlock AI predictions & premium features</p>
+                <p className="text-xs text-gray-400 mb-3">{common.unlockFeatures || 'Unlock AI predictions & premium features'}</p>
                 <button className="w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold rounded-lg hover:scale-105 transition-transform">
-                  Upgrade Now
+                  {common.upgradeNow || 'Upgrade Now'}
                 </button>
               </div>
             )}
@@ -264,33 +286,29 @@ export default function DashboardLayout({
                   <Menu className="w-5 h-5" />
                 </button>
 
-                {/* Search Bar */}
-                <div className="hidden md:flex items-center space-x-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2 w-96">
-                  <Search className="w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search charts, predictions..."
-                    className="bg-transparent border-none outline-none text-white placeholder-gray-500 w-full"
-                  />
-                  <kbd className="px-2 py-1 text-xs bg-white/10 rounded">⌘K</kbd>
-                </div>
+                {/* Search Bar - Triggers Command Palette */}
+                <button
+                  onClick={() => setCommandPaletteOpen(true)}
+                  className="hidden md:flex items-center space-x-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2 w-96 hover:bg-white/10 transition-all group"
+                >
+                  <Search className="w-5 h-5 text-gray-400 group-hover:text-purple-400 transition-colors" />
+                  <span className="text-gray-500 group-hover:text-gray-400 flex-1 text-left transition-colors">
+                    {common.searchPlaceholder || 'Search charts, predictions...'}
+                  </span>
+                  <kbd className="px-2 py-1 text-xs bg-white/10 rounded border border-white/20">⌘K</kbd>
+                </button>
               </div>
 
               {/* Right Section */}
               <div className="flex items-center space-x-3">
                 {/* Notifications */}
-                <button className="relative p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all">
-                  <Bell className="w-5 h-5" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
+                <NotificationCenter />
 
-                {/* Dark Mode Toggle */}
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
-                >
-                  {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                </button>
+                {/* Language Switcher - Hidden */}
+                {/* <LanguageSwitcher /> */}
+
+                {/* Theme Switcher */}
+                <ThemeSwitcher />
 
                 {/* User Menu */}
                 <div className="relative">
@@ -318,25 +336,25 @@ export default function DashboardLayout({
                       <div className="py-2">
                         <Link href="/dashboard/settings" className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 transition-all">
                           <User className="w-4 h-4" />
-                          <span className="text-sm">Profile</span>
+                          <span className="text-sm">{common.profile || 'Profile'}</span>
                         </Link>
                         <Link href="/dashboard/settings" className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 transition-all">
                           <CreditCard className="w-4 h-4" />
-                          <span className="text-sm">Billing</span>
+                          <span className="text-sm">{common.billing || 'Billing'}</span>
                         </Link>
                         <Link href="/dashboard/settings" className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 transition-all">
                           <Shield className="w-4 h-4" />
-                          <span className="text-sm">Privacy</span>
+                          <span className="text-sm">{common.privacy || 'Privacy'}</span>
                         </Link>
                         <Link href="/help" className="flex items-center space-x-3 px-4 py-2 text-gray-300 hover:text-white hover:bg-white/5 transition-all">
                           <HelpCircle className="w-4 h-4" />
-                          <span className="text-sm">Help Center</span>
+                          <span className="text-sm">{common.helpCenter || 'Help Center'}</span>
                         </Link>
                       </div>
                       <div className="p-2 border-t border-white/10">
                         <button className="flex items-center space-x-3 px-4 py-2 w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all">
                           <LogOut className="w-4 h-4" />
-                          <span className="text-sm font-semibold">Sign Out</span>
+                          <span className="text-sm font-semibold">{common.signOut || 'Sign Out'}</span>
                         </button>
                       </div>
                     </div>
@@ -364,6 +382,16 @@ export default function DashboardLayout({
           </div>
         </footer>
       </div>
+
+      {/* Keyboard Shortcuts */}
+      <KeyboardShortcuts />
+
+      {/* Command Palette */}
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+      />
     </div>
+    </ThemeProvider>
   );
 }

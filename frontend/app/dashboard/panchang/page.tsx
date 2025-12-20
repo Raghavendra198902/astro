@@ -20,6 +20,7 @@ import {
   Share2
 } from 'lucide-react';
 import { API_URL } from '@/app/config';
+import { useTranslations } from '@/app/hooks/useTranslations';
 
 interface PanchangData {
   panchang: {
@@ -42,6 +43,7 @@ interface PanchangData {
 }
 
 export default function PanchangPage() {
+  const { panchang, common } = useTranslations();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [location, setLocation] = useState('Mumbai, India');
   const [latitude] = useState(19.0760);
@@ -130,19 +132,19 @@ export default function PanchangPage() {
                   <Calendar className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <div>Hindu Panchang <span className="text-orange-400">(पंचांग)</span></div>
-                  <p className="text-sm font-normal text-gray-400 mt-1">Hindu Vedic Calendar & Auspicious Timings</p>
+                  <div>{panchang.title || 'Hindu Panchang'} <span className="text-orange-400">(पंचांग)</span></div>
+                  <p className="text-sm font-normal text-gray-400 mt-1">{panchang.subtitle || 'Hindu Vedic Calendar & Auspicious Timings'}</p>
                 </div>
               </h1>
             </div>
             <div className="flex gap-3">
               <button className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition">
                 <Share2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Share</span>
+                <span className="hidden sm:inline">{common.share || 'Share'}</span>
               </button>
               <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-yellow-600 hover:from-orange-700 hover:to-yellow-700 text-white rounded-lg font-medium transition">
                 <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Download PDF</span>
+                <span className="hidden sm:inline">{common.downloadPDF || 'Download PDF'}</span>
               </button>
             </div>
           </div>
@@ -172,7 +174,7 @@ export default function PanchangPage() {
                 onClick={() => setSelectedDate(new Date())}
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg font-medium transition"
               >
-                Today
+                {common.today || 'Today'}
               </button>
             </div>
 
@@ -181,7 +183,7 @@ export default function PanchangPage() {
               <div className="flex items-center gap-2 text-gray-300">
                 <MapPin className="w-4 h-4 text-orange-400" />
                 <span className="text-sm">{location}</span>
-                <button className="text-xs text-purple-400 hover:text-purple-300 ml-2">Change</button>
+                <button className="text-xs text-purple-400 hover:text-purple-300 ml-2">{common.change || 'Change'}</button>
               </div>
             </div>
           </div>

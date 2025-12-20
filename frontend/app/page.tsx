@@ -7,8 +7,10 @@ import {
   BarChart3, Users, Award, ArrowRight, Check, ChevronRight, 
   Brain, Cpu, Database, Globe, Menu, X
 } from 'lucide-react';
+import { useTranslations } from './hooks/useTranslations';
 
 export default function LandingPage() {
+  const { landing: t } = useTranslations();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 

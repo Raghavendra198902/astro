@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Video, Calendar, Clock, User, Star, MessageSquare, Phone, CheckCircle, XCircle, Loader2, Plus, Filter, Search, Sparkles, Brain, Target, Zap } from 'lucide-react';
+import { useTranslations } from '@/app/hooks/useTranslations';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -9,6 +10,7 @@ type ConsultationType = 'video' | 'audio' | 'chat';
 type BookingStatus = 'upcoming' | 'completed' | 'cancelled';
 
 export default function ConsultationsPage() {
+  const { consultations: t } = useTranslations();
   const [activeTab, setActiveTab] = useState<'book' | 'my-bookings'>('book');
   const [selectedType, setSelectedType] = useState<ConsultationType>('video');
   const [selectedAstrologer, setSelectedAstrologer] = useState<number | null>(null);
@@ -227,9 +229,9 @@ export default function ConsultationsPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-violet-200 to-purple-200 bg-clip-text text-transparent flex items-center justify-center gap-4">
             <Video className="w-10 h-10 text-violet-400" strokeWidth={2} />
-            Expert Consultations
+            {t.title || 'Expert Consultations'}
           </h1>
-          <p className="text-slate-400 mt-4 text-lg">Connect with professional astrologers and spiritual guides</p>
+          <p className="text-slate-400 mt-4 text-lg">{t.subtitle || 'Connect with professional astrologers and spiritual guides'}</p>
         </div>
 
         {/* Tab Navigation */}

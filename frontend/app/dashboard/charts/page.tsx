@@ -7,8 +7,11 @@ import {
   Radio, Target, Compass, Eye, TrendingUp, Award, Search
 } from 'lucide-react';
 import { API_URL } from '@/app/config';
+import { sendNotification } from '@/app/components/NotificationCenter';
+import { useTranslations } from '@/app/hooks/useTranslations';
 
 export default function ChartsPage() {
+  const { charts } = useTranslations();
   const [loading, setLoading] = useState(false);
   const [chartGenerated, setChartGenerated] = useState(false);
   const [activeTab, setActiveTab] = useState('chart');
@@ -16,6 +19,7 @@ export default function ChartsPage() {
   const [chartData, setChartData] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
   const [particles, setParticles] = useState<Array<{left: string, top: string, delay: string, duration: string}>>([]);
+  const [chartStyle, setChartStyle] = useState<'north' | 'south' | 'western'>('north');
   const [formData, setFormData] = useState({
     name: 'Raghavendra Deshpande',
     date: '1978-07-09',
@@ -110,6 +114,14 @@ export default function ChartsPage() {
     return house > 12 ? house - 12 : house;
   };
 
+  // Helper function to get sign name from longitude (for South Indian chart)
+  const getSignFromLongitude = (longitude: number) => {
+    const signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+                   'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
+    const signIndex = Math.floor(longitude / 30) % 12;
+    return signs[signIndex];
+  };
+
   const handleGenerateChart = async () => {
     console.log('🔄 Generating chart with form data:', formData);
     setLoading(true);
@@ -145,83 +157,6 @@ export default function ChartsPage() {
       localStorage.setItem('lastGeneratedChart', JSON.stringify(formData));
       console.log('💾 Saved chart data to localStorage');
       
-      // Auto-create profile for predictions
-      try {
-        const token = localStorage.getItem('token');
-        console.log('🔄 Creating profile in database...');
-        
-        // First check if profile already exists
-        const checkRes = await fetch(`${API_URL}/api/v1/users/profiles`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (checkRes.ok) {
-          const existingProfiles = await checkRes.json();
-          if (existingProfiles.length > 0) {
-            console.log('✅ Profile already exists, skipping creation');
-            // Don't return here - continue to display chart
-          } else {
-            // Create new profile only if none exists
-            await createProfile();
-          }
-        } else {
-          // If check fails, try creating profile anyway
-          await createProfile();
-        }
-        
-        async function createProfile() {
-          // Create new profile
-          const profileRes = await fetch(`${API_URL}/api/v1/users/profiles`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            name: formData.name,
-            date_of_birth: formData.date,
-            time_of_birth: formData.time + ':00',
-            birthplace: formData.place,
-            latitude: parseFloat(formData.latitude),
-            longitude: parseFloat(formData.longitude),
-            timezone: formData.timezone || 'Asia/Kolkata',
-            tob_accuracy: 'exact',
-            preferred_system: 'vedic'
-          })
-        });
-        
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          console.log('✅ Profile created successfully:', profileData);
-        } else {
-          const errorText = await profileRes.text();
-          console.error('❌ Profile creation failed:', profileRes.status, errorText);
-          // Try alternate format
-          const altProfileRes = await fetch(`${API_URL}/api/v1/users/profiles`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              full_name: formData.name,
-              birth_date: formData.date,
-              birth_time: formData.time,
-              birth_place: formData.place,
-              latitude: parseFloat(formData.latitude),
-              longitude: parseFloat(formData.longitude)
-            })
-          });
-          if (altProfileRes.ok) {
-            console.log('✅ Profile created with alternate format');
-          }
-        }
-        }
-      } catch (err) {
-        console.error('❌ Profile creation error:', err);
-        // Don't let profile errors stop chart display
-      }
-      
       // Process planet positions by house
       console.log('🏠 Processing planets by house...');
       const planetsByHouse: any = {};
@@ -244,6 +179,13 @@ export default function ChartsPage() {
         setChartData(newChartData);
         setChartGenerated(true);
         console.log('✅ State updated - chart should now be visible');
+        
+        // Send notification
+        sendNotification({
+          type: 'chart',
+          title: '⭐ Birth Chart Created!',
+          message: `${formData.name}'s ${formData.chartType} birth chart has been successfully generated.`
+        });
         
         // Scroll to chart section after state update
         setTimeout(() => {
@@ -349,25 +291,25 @@ export default function ChartsPage() {
               </div>
             </div>
             <h1 className="text-5xl md:text-6xl font-black text-white mb-3 bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent leading-tight">
-              Birth Chart Generator
+              {charts.title || 'Birth Chart Generator'}
             </h1>
             <p className="text-gray-300 text-xl font-medium max-w-2xl">
-              Unlock your cosmic blueprint with advanced Vedic & Western astrology powered by AI
+              {charts.subtitle || 'Unlock your cosmic blueprint with advanced Vedic & Western astrology powered by AI'}
             </p>
             
             {/* Feature badges */}
             <div className="flex flex-wrap gap-3 pt-2">
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
                 <Radio className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-gray-300 font-semibold">Real-time Calculation</span>
+                <span className="text-sm text-gray-300 font-semibold">{charts.realTimeCalc || 'Real-time Calculation'}</span>
               </div>
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
                 <Target className="w-4 h-4 text-blue-400" />
-                <span className="text-sm text-gray-300 font-semibold">99.9% Accuracy</span>
+                <span className="text-sm text-gray-300 font-semibold">{charts.accuracy || '99.9% Accuracy'}</span>
               </div>
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
                 <Eye className="w-4 h-4 text-purple-400" />
-                <span className="text-sm text-gray-300 font-semibold">AI Insights</span>
+                <span className="text-sm text-gray-300 font-semibold">{charts.aiInsights || 'AI Insights'}</span>
               </div>
             </div>
           </div>
@@ -399,7 +341,7 @@ export default function ChartsPage() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-3xl font-bold text-white flex items-center space-x-3">
           <Compass className="w-8 h-8 text-purple-400" />
-          <span>Select Chart Type</span>
+          <span>{charts.selectChartType || 'Select Chart Type'}</span>
         </h2>
         <div className="flex space-x-2">
           <span className="px-3 py-1.5 bg-orange-600/20 text-orange-400 text-sm font-semibold rounded-lg border border-orange-500/30">
@@ -885,33 +827,167 @@ export default function ChartsPage() {
                   )}
                 </div>
 
-                {/* Advanced Vedic Chart - 3D Effect */}
-                <div className="relative w-full aspect-square max-w-2xl mx-auto perspective-1000">
-                  {/* Outer glow rings */}
-                  <div className="absolute -inset-8 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
-                  <div className="absolute -inset-4 bg-gradient-to-r from-purple-600/30 via-pink-600/30 to-purple-600/30 rounded-full blur-2xl animate-pulse" style={{animationDelay: '0.5s'}}></div>
-                  
-                  {/* Rotating outer ring */}
-                  <div className="absolute -inset-2 border-2 border-dashed border-purple-500/20 rounded-full animate-spin-slow"></div>
-                  
-                  {/* Main chart container with 3D transform */}
-                  <div className="relative w-full h-full transform-3d hover:scale-105 transition-transform duration-700">
-                    {/* Outer Border with gradient - Shape based on chart type */}
-                    <div className={`absolute inset-0 border-4 border-purple-500/60 bg-gradient-to-br from-purple-900/40 via-pink-900/30 to-purple-900/40 backdrop-blur-xl shadow-2xl shadow-purple-500/20 ${
-                      ['natal', 'solar', 'progressed', 'composite'].includes(formData.chartType) 
-                        ? 'rounded-full' 
-                        : 'rotate-45 rounded-3xl'
-                    }`}>
-                      {/* Inner shadow for depth */}
-                      <div className={`absolute inset-0 shadow-inner shadow-black/50 ${
-                        ['natal', 'solar', 'progressed', 'composite'].includes(formData.chartType) 
-                          ? 'rounded-full' 
-                          : 'rounded-3xl'
-                      }`}></div>
-                    </div>
+                {/* Chart Style Selector */}
+                <div className="flex justify-center mb-8">
+                  <div className="inline-flex bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-1.5 space-x-2">
+                    <button
+                      onClick={() => setChartStyle('north')}
+                      className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 ${
+                        chartStyle === 'north'
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      North Indian
+                    </button>
+                    <button
+                      onClick={() => setChartStyle('south')}
+                      className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 ${
+                        chartStyle === 'south'
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      South Indian
+                    </button>
+                    <button
+                      onClick={() => setChartStyle('western')}
+                      className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 ${
+                        chartStyle === 'western'
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Western
+                    </button>
+                  </div>
+                </div>
+
+                {/* South Indian Chart */}
+                {chartStyle === 'south' && chartData && (
+                  <div className="relative w-full aspect-square max-w-2xl mx-auto bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border-4 border-amber-900 shadow-2xl">
+                    {(() => {
+                      const housePlanets: Record<number, any[]> = {};
+                      Object.entries(chartData.planetsByHouse || {}).forEach(([house, planets]: any) => {
+                        housePlanets[parseInt(house)] = planets;
+                      });
+
+                      // South Indian chart - Fixed house positions in 4x4 grid
+                      const housePositions = [
+                        { house: 1, row: 2, col: 1 },  // Center-left (Lagna)
+                        { house: 2, row: 2, col: 0 },  // Left side
+                        { house: 3, row: 1, col: 0 },  // Top-left
+                        { house: 4, row: 0, col: 1 },  // Top center-left
+                        { house: 5, row: 0, col: 2 },  // Top center-right
+                        { house: 6, row: 0, col: 3 },  // Top-right
+                        { house: 7, row: 1, col: 3 },  // Right side top
+                        { house: 8, row: 2, col: 3 },  // Right side
+                        { house: 9, row: 3, col: 3 },  // Bottom-right
+                        { house: 10, row: 3, col: 2 }, // Bottom center-right
+                        { house: 11, row: 3, col: 1 }, // Bottom center-left
+                        { house: 12, row: 3, col: 0 }, // Bottom-left
+                      ];
+
+                      const ascendantSign = getSignFromLongitude(chartData.ascendant);
+                      const signs = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+                                     'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
+                      const ascendantIndex = signs.indexOf(ascendantSign);
+
+                      return (
+                        <>
+                          <div className="absolute inset-0 grid grid-cols-4 grid-rows-4">
+                            {housePositions.map(({ house, row, col }) => {
+                              const signIndex = (ascendantIndex + house - 1) % 12;
+                              const sign = signs[signIndex];
+                              const planets = housePlanets[house] || [];
+
+                              return (
+                                <div
+                                  key={house}
+                                  className="border-2 border-amber-900 flex items-center justify-center relative"
+                                  style={{ gridRow: row + 1, gridColumn: col + 1 }}
+                                >
+                                  <div className="text-center p-2">
+                                    <div className="absolute top-1 left-1 text-[10px] font-bold text-amber-950/50">
+                                      {house}
+                                    </div>
+                                    {house === 1 && (
+                                      <div className="text-[11px] font-black text-red-800 bg-red-100/60 px-1.5 rounded border border-red-400 mb-1">
+                                        Lg
+                                      </div>
+                                    )}
+                                    <div className="text-[13px] font-black text-amber-900 mb-1">
+                                      {sign.substring(0, 3).toUpperCase()}
+                                    </div>
+                                    {planets.length > 0 && (
+                                      <div className="flex flex-wrap gap-0.5 justify-center items-center">
+                                        {planets.slice(0, 3).map((planet: any) => {
+                                          const planetInfo = getPlanetAbbr(planet.name);
+                                          return (
+                                            <div
+                                              key={planet.name}
+                                              className="text-[10px] font-bold text-blue-900 bg-blue-100/80 px-1 rounded"
+                                            >
+                                              {planetInfo.short}
+                                            </div>
+                                          );
+                                        })}
+                                        {planets.length > 3 && (
+                                          <div className="text-[8px] text-amber-800 font-bold">+{planets.length - 3}</div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            <div className="border-2 border-amber-900 bg-amber-100/30" style={{ gridRow: 2, gridColumn: 2 }}></div>
+                            <div className="border-2 border-amber-900 bg-amber-100/30" style={{ gridRow: 2, gridColumn: 3 }}></div>
+                            <div className="border-2 border-amber-900 bg-amber-100/30" style={{ gridRow: 3, gridColumn: 2 }}></div>
+                          </div>
+                          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                            <line x1="0" y1="100%" x2="100%" y2="0" stroke="#78350f" strokeWidth="4" />
+                          </svg>
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-amber-100 border-2 border-amber-800 rounded-full w-20 h-20 flex items-center justify-center shadow-lg z-10">
+                            <div className="text-center">
+                              <div className="text-[11px] font-black text-amber-950 leading-tight">SOUTH</div>
+                              <div className="text-[9px] text-amber-800 font-semibold">INDIAN</div>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* North Indian & Western Charts */}
+                {chartStyle !== 'south' && (
+                  <div className="relative w-full aspect-square max-w-2xl mx-auto perspective-1000">
+                    {/* Outer glow rings */}
+                    <div className="absolute -inset-8 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
+                    <div className="absolute -inset-4 bg-gradient-to-r from-purple-600/30 via-pink-600/30 to-purple-600/30 rounded-full blur-2xl animate-pulse" style={{animationDelay: '0.5s'}}></div>
                     
-                    {/* SVG Chart with enhanced visuals */}
-                    <svg key={chartData?.timestamp || 'default'} className="absolute inset-0 w-full h-full" viewBox="0 0 400 400">
+                    {/* Rotating outer ring */}
+                    <div className="absolute -inset-2 border-2 border-dashed border-purple-500/20 rounded-full animate-spin-slow"></div>
+                    
+                    {/* Main chart container with 3D transform */}
+                    <div className="relative w-full h-full transform-3d hover:scale-105 transition-transform duration-700">
+                      {/* Outer Border with gradient - Shape based on chart style */}
+                      <div className={`absolute inset-0 border-4 border-purple-500/60 bg-gradient-to-br from-purple-900/40 via-pink-900/30 to-purple-900/40 backdrop-blur-xl shadow-2xl shadow-purple-500/20 ${
+                        chartStyle === 'western'
+                          ? 'rounded-full' 
+                          : 'rotate-45 rounded-3xl'
+                      }`}>
+                        {/* Inner shadow for depth */}
+                        <div className={`absolute inset-0 shadow-inner shadow-black/50 ${
+                          chartStyle === 'western'
+                            ? 'rounded-full' 
+                            : 'rounded-3xl'
+                        }`}></div>
+                      </div>
+                      
+                      {/* SVG Chart with enhanced visuals */}
+                      <svg key={chartData?.timestamp || 'default'} className="absolute inset-0 w-full h-full" viewBox="0 0 400 400">
                       <defs>
                         {/* Gradient definitions */}
                         <linearGradient id="houseGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -934,7 +1010,7 @@ export default function ChartsPage() {
                         </filter>
                       </defs>
                       
-                      {['natal', 'solar', 'progressed', 'composite'].includes(formData.chartType) ? (
+                      {chartStyle === 'western' ? (
                         <>
                           {/* Western Circular Wheel Chart */}
                           {/* Outer circle */}
@@ -1017,7 +1093,7 @@ export default function ChartsPage() {
                               });
                             });
                             
-                            const aspects: JSX.Element[] = [];
+                            const aspects: React.ReactElement[] = [];
                             for (let i = 0; i < planetPositions.length; i++) {
                               for (let j = i + 1; j < planetPositions.length; j++) {
                                 const p1 = planetPositions[i];
@@ -1167,12 +1243,23 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planets && Object.entries(chartData.planets).filter(([name, data]: any) => 
                             getHouseNumber(data.longitude, chartData.ascendant) === 1
-                          ).map(([name], idx: number) => {
+                          ).map(([name, data]: any, idx: number) => {
                             const planet = getPlanetAbbr(name);
+                            const motionColor = data.retrograde ? '#ef4444' : 
+                                                data.motion_state === 'Very Fast' || data.motion_state === 'Fast' ? '#10b981' :
+                                                data.motion_state === 'Very Slow' || data.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={name} x="200" y={98 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planet.marathi}
-                              </text>
+                              <g key={name}>
+                                {/* Motion state line indicator */}
+                                <line x1="185" y1={95 + idx * 16} x2="195" y2={95 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {data.retrograde && (
+                                  <text x="180" y={98 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="200" y={98 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planet.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1187,10 +1274,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[2]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="320" y={98 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="305" y1={95 + idx * 16} x2="315" y2={95 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="300" y={98 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="320" y={98 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1205,10 +1303,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[3]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="345" y={243 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="330" y1={240 + idx * 16} x2="340" y2={240 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="325" y={243 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="345" y={243 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1223,10 +1332,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[4]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="260" y={343 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="245" y1={340 + idx * 16} x2="255" y2={340 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="240" y={343 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="260" y={343 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1259,10 +1379,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[6]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="140" y={343 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="125" y1={340 + idx * 16} x2="135" y2={340 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="120" y={343 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="140" y={343 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1277,10 +1408,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[7]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="55" y={243 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="40" y1={240 + idx * 16} x2="50" y2={240 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="35" y={243 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="55" y={243 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1295,10 +1437,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[8]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="70" y={178 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="55" y1={175 + idx * 16} x2="65" y2={175 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="50" y={178 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="70" y={178 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1313,10 +1466,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[9]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="130" y={133 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="115" y1={130 + idx * 16} x2="125" y2={130 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="110" y={133 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="130" y={133 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1331,10 +1495,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[10]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="80" y={98 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="65" y1={95 + idx * 16} x2="75" y2={95 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="60" y={98 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="80" y={98 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1349,10 +1524,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[11]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="270" y={133 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="255" y1={130 + idx * 16} x2="265" y2={130 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="250" y={133 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="270" y={133 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1367,10 +1553,21 @@ export default function ChartsPage() {
                           </text>
                           {chartData.planetsByHouse[12]?.map((planet: any, idx: number) => {
                             const planetInfo = getPlanetAbbr(planet.name);
+                            const planetData = chartData.planets[planet.name];
+                            const motionColor = planetData?.retrograde ? '#ef4444' : 
+                                                planetData?.motion_state === 'Very Fast' || planetData?.motion_state === 'Fast' ? '#10b981' :
+                                                planetData?.motion_state === 'Very Slow' || planetData?.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                             return (
-                              <text key={planet.name} x="320" y={98 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
-                                {planetInfo.marathi}
-                              </text>
+                              <g key={planet.name}>
+                                <line x1="305" y1={95 + idx * 16} x2="315" y2={95 + idx * 16} 
+                                      stroke={motionColor} strokeWidth="2" opacity="0.8" />
+                                {planetData?.retrograde && (
+                                  <text x="300" y={98 + idx * 16} textAnchor="end" fill="#ef4444" fontSize="10" fontWeight="bold">℞</text>
+                                )}
+                                <text x="320" y={98 + idx * 16} textAnchor="middle" fill="#000" fontSize="12">
+                                  {planetInfo.marathi}
+                                </text>
+                              </g>
                             );
                           })}
                         </>
@@ -1401,6 +1598,7 @@ export default function ChartsPage() {
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Enhanced Legend with icons and animations */}
                 <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1448,6 +1646,61 @@ export default function ChartsPage() {
                     <p className="text-gray-400 text-xs leading-relaxed">Exact planetary positions for precise analysis</p>
                   </div>
                 </div>
+
+                {/* Planetary Motion States Legend */}
+                {chartData && (
+                  <div className="mt-8 bg-gradient-to-br from-purple-600/10 to-pink-600/10 backdrop-blur-xl border border-purple-500/30 rounded-2xl p-6">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center space-x-2">
+                      <Zap className="w-5 h-5 text-purple-400" />
+                      <span>Planetary Motion States (Gati)</span>
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                      <div className="p-3 bg-white/5 rounded-lg border border-red-500/30">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-bold text-red-400">Vakra</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400">Retrograde</p>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-lg border border-green-500/30">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-bold text-green-400">Druti</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400">Fast</p>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-lg border border-yellow-500/30">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-bold text-yellow-400">Manda</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400">Slow</p>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-lg border border-blue-500/30">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-bold text-blue-400">Sama</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400">Normal</p>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-lg border border-emerald-500/30">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-bold text-emerald-400">Ati Druti</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400">Very Fast</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-4 leading-relaxed">
+                      Motion states (Gati) indicate the speed and direction of planetary movement. 
+                      <span className="text-purple-400 font-semibold"> Vakra (Retrograde)</span> planets appear to move backward, 
+                      <span className="text-green-400 font-semibold"> Druti</span> indicates fast forward motion, 
+                      <span className="text-yellow-400 font-semibold"> Manda</span> shows slow movement, and 
+                      <span className="text-blue-400 font-semibold"> Sama</span> represents normal speed. 
+                      These states significantly influence planetary strength and effects in Vedic astrology.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1455,34 +1708,106 @@ export default function ChartsPage() {
           {/* Planetary Positions */}
           {activeTab === 'planets' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {planets.map((planet, idx) => (
-                <div
-                  key={planet.name}
-                  className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-xl p-5 hover:border-white/20 hover:scale-105 transition-all duration-300 overflow-hidden"
-                  style={{ animationDelay: `${idx * 0.05}s` }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+              {chartData && chartData.planets ? (
+                Object.entries(chartData.planets).map(([name, data]: [string, any], idx) => {
+                  const planetColors: any = {
+                    sun: '#f59e0b', moon: '#94a3b8', mars: '#ef4444',
+                    mercury: '#10b981', jupiter: '#eab308', venus: '#ec4899',
+                    saturn: '#6366f1', rahu: '#8b5cf6', ketu: '#f97316'
+                  };
+                  const sign = getZodiacSign(data.longitude);
+                  const house = getHouseNumber(data.longitude, chartData.ascendant);
+                  const motionColor = data.retrograde ? '#ef4444' : 
+                                      data.motion_state === 'Very Fast' || data.motion_state === 'Fast' ? '#10b981' :
+                                      data.motion_state === 'Very Slow' || data.motion_state === 'Slow' ? '#eab308' : '#6366f1';
                   
-                  <div className="relative flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg text-white shadow-lg"
-                        style={{ backgroundColor: planet.color }}
-                      >
-                        {planet.name.charAt(0)}
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-bold text-white">{planet.name}</h4>
-                        <p className="text-sm text-gray-400">{planet.sign}</p>
+                  return (
+                    <div
+                      key={name}
+                      className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-xl p-5 hover:border-white/20 hover:scale-105 transition-all duration-300 overflow-hidden"
+                      style={{ animationDelay: `${idx * 0.05}s` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                      
+                      <div className="relative">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-4">
+                            <div
+                              className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg text-white shadow-lg"
+                              style={{ backgroundColor: planetColors[name] || '#6366f1' }}
+                            >
+                              {name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="text-lg font-bold text-white capitalize">{name}</h4>
+                              <p className="text-sm text-gray-400">{sign.name}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-black text-white">{sign.degree}°{sign.minutes}'</p>
+                            <p className="text-xs text-gray-400">House {house}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Motion State Indicator */}
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10">
+                          <div className="flex items-center space-x-2">
+                            <div 
+                              className="w-2 h-2 rounded-full animate-pulse" 
+                              style={{ backgroundColor: motionColor }}
+                            ></div>
+                            <span className="text-xs text-gray-400">Motion:</span>
+                            <span className="text-xs font-semibold" style={{ color: motionColor }}>
+                              {data.motion_state || 'Normal'}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs text-gray-400">Sanskrit:</span>
+                            <span className="text-xs font-semibold text-purple-400">
+                              {data.motion_sanskrit || 'Sama'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Speed indicator */}
+                        <div className="mt-2 text-xs text-gray-500">
+                          Speed: {Math.abs(data.speed).toFixed(4)}° /day
+                          {data.retrograde && <span className="ml-2 text-red-400 font-bold">℞ Retrograde</span>}
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black text-white">{planet.degree}</p>
-                      <p className="text-xs text-gray-400">House {planet.house}</p>
+                  );
+                })
+              ) : (
+                planets.map((planet, idx) => (
+                  <div
+                    key={planet.name}
+                    className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-xl p-5 hover:border-white/20 hover:scale-105 transition-all duration-300 overflow-hidden"
+                    style={{ animationDelay: `${idx * 0.05}s` }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    
+                    <div className="relative flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div
+                          className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg text-white shadow-lg"
+                          style={{ backgroundColor: planet.color }}
+                        >
+                          {planet.name.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-bold text-white">{planet.name}</h4>
+                          <p className="text-sm text-gray-400">{planet.sign}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-black text-white">{planet.degree}</p>
+                        <p className="text-xs text-gray-400">House {planet.house}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           )}
 

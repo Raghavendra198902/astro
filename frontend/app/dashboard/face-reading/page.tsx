@@ -1,19 +1,88 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Scan, Upload, Camera, Eye, Star, Brain, Heart, Users, Sparkles, Loader2, Image as ImageIcon, Zap, Target, Award, Compass } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Scan, Upload, Camera, Eye, Star, Brain, Heart, Users, Sparkles, Loader2, Image as ImageIcon, Zap, Target, Award, Compass, History, Trash2 } from 'lucide-react';
 import { API_URL } from '@/app/config';
+import PDFExporter from '@/app/components/PDFExporter';
+import { useTranslations } from '@/app/hooks/useTranslations';
+
+interface ReadingHistory {
+  id: string;
+  timestamp: string;
+  thumbnail: string;
+  traits?: any;
+  personality?: any;
+}
 
 export default function FaceReadingPage() {
+  const { faceReading: t } = useTranslations();
   const [activeTab, setActiveTab] = useState<'upload' | 'analysis'>('upload');
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showWebcam, setShowWebcam] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [history, setHistory] = useState<ReadingHistory[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Load history from localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('faceReadingHistory');
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error('Failed to parse history:', e);
+      }
+    }
+  }, []);
+
+  // Save to history
+  const saveToHistory = (result: any, image: string) => {
+    const newEntry: ReadingHistory = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      thumbnail: image,
+      traits: result.traits,
+      personality: result.personality_overview
+    };
+    
+    const updatedHistory = [newEntry, ...history].slice(0, 10); // Keep last 10
+    setHistory(updatedHistory);
+    localStorage.setItem('faceReadingHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Load from history
+  const loadFromHistory = (entry: ReadingHistory) => {
+    setImagePreview(entry.thumbnail);
+    // Reconstruct basic analysis object
+    if (entry.traits || entry.personality) {
+      setAnalysis({
+        traits: entry.traits,
+        personality_overview: entry.personality
+      });
+      setActiveTab('analysis');
+    }
+    setShowHistory(false);
+  };
+
+  // Delete history entry
+  const deleteHistoryEntry = (id: string) => {
+    const updatedHistory = history.filter(h => h.id !== id);
+    setHistory(updatedHistory);
+    localStorage.setItem('faceReadingHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Clear all history
+  const clearHistory = () => {
+    if (confirm('Are you sure you want to clear all face reading history?')) {
+      setHistory([]);
+      localStorage.removeItem('faceReadingHistory');
+    }
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -154,6 +223,11 @@ export default function FaceReadingPage() {
       if (response.ok) {
         const data = await response.json();
         setAnalysis(data.analysis_data);
+        
+        // Save to history with image
+        if (imagePreview) {
+          saveToHistory(data.analysis_data, imagePreview);
+        }
       } else {
         const error = await response.json();
         alert(error.detail || 'Failed to analyze face');
@@ -207,10 +281,73 @@ export default function FaceReadingPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-indigo-200 to-blue-200 bg-clip-text text-transparent flex items-center justify-center gap-4">
             <Scan className="w-10 h-10 text-indigo-400" strokeWidth={2} />
-            AI Face Reading
+            {t.title || 'AI Face Reading'}
           </h1>
-          <p className="text-slate-400 mt-4 text-lg">Discover personality insights through facial analysis</p>
+          <p className="text-slate-400 mt-4 text-lg">{t.subtitle || 'Discover personality insights through facial analysis'}</p>
+          
+          {/* History Button */}
+          {history.length > 0 && (
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="mt-4 px-6 py-2 rounded-xl font-semibold bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all inline-flex items-center gap-2"
+            >
+              <History className="w-4 h-4" />
+              View History ({history.length})
+            </button>
+          )}
         </div>
+
+        {/* History Panel */}
+        {showHistory && history.length > 0 && (
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <History className="w-5 h-5 text-indigo-400" />
+                  Recent Face Readings
+                </h3>
+                <button
+                  onClick={clearHistory}
+                  className="text-sm text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear All
+                </button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {history.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="relative group cursor-pointer"
+                    onClick={() => loadFromHistory(entry)}
+                  >
+                    <div className="aspect-square rounded-xl overflow-hidden border-2 border-slate-700 group-hover:border-indigo-500 transition-all">
+                      <img
+                        src={entry.thumbnail}
+                        alt="Face reading"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-end p-2">
+                      <div className="text-xs text-white">
+                        {new Date(entry.timestamp).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteHistoryEntry(entry.id);
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-red-500/80 hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="max-w-2xl mx-auto bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-2">
@@ -420,9 +557,22 @@ export default function FaceReadingPage() {
                       <Sparkles className="w-8 h-8 text-indigo-400" />
                       Face Reading Analysis
                     </h2>
-                    <div className="px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-semibold text-green-300">AI Analysis</span>
+                    <div className="flex items-center gap-3">
+                      <PDFExporter
+                        title="Face Reading Analysis Report"
+                        content={{
+                          traits: analysis.features,
+                          personality: analysis.interpretation?.summary || '',
+                          analysis: analysis.interpretation?.detailed || '',
+                          timestamp: new Date().toISOString()
+                        }}
+                        filename={`face-reading-${new Date().toISOString().split('T')[0]}.pdf`}
+                        type="face-reading"
+                      />
+                      <div className="px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-semibold text-green-300">AI Analysis</span>
+                      </div>
                     </div>
                   </div>
 

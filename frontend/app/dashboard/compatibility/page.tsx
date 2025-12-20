@@ -1,14 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import { Heart, Users, Star, Sparkles, TrendingUp, Target, Award, Zap, Crown, Loader2, Calendar, MapPin, Clock, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Heart, Users, Star, Sparkles, TrendingUp, Target, Award, Zap, Crown, Loader2, Calendar, MapPin, Clock, Search, History, Trash2 } from 'lucide-react';
+import PDFExporter from '@/app/components/PDFExporter';
+import { sendNotification } from '@/app/components/NotificationCenter';
+import { useTranslations } from '@/app/hooks/useTranslations';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
+interface CompatibilityHistory {
+  id: string;
+  timestamp: string;
+  type: 'vedic' | 'western';
+  person1: any;
+  person2: any;
+  score?: number;
+}
+
 export default function CompatibilityPage() {
+  const { compatibility: t, common } = useTranslations();
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<any>(null);
   const [compatibilityType, setCompatibilityType] = useState<'vedic' | 'western'>('vedic');
+  const [history, setHistory] = useState<CompatibilityHistory[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [person1, setPerson1] = useState({
     name: '',
     date: '',
@@ -25,6 +40,57 @@ export default function CompatibilityPage() {
     latitude: '',
     longitude: '',
   });
+
+  // Load history from localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('compatibilityHistory');
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error('Failed to parse history:', e);
+      }
+    }
+  }, []);
+
+  // Save to history
+  const saveToHistory = (result: any) => {
+    const newEntry: CompatibilityHistory = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      type: compatibilityType,
+      person1: { ...person1 },
+      person2: { ...person2 },
+      score: result?.overall_score || result?.total_score
+    };
+    
+    const updatedHistory = [newEntry, ...history].slice(0, 10); // Keep last 10
+    setHistory(updatedHistory);
+    localStorage.setItem('compatibilityHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Load from history
+  const loadFromHistory = (entry: CompatibilityHistory) => {
+    setPerson1(entry.person1);
+    setPerson2(entry.person2);
+    setCompatibilityType(entry.type);
+    setShowHistory(false);
+  };
+
+  // Delete history entry
+  const deleteHistoryEntry = (id: string) => {
+    const updatedHistory = history.filter(h => h.id !== id);
+    setHistory(updatedHistory);
+    localStorage.setItem('compatibilityHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Clear all history
+  const clearHistory = () => {
+    if (confirm('Are you sure you want to clear all compatibility history?')) {
+      setHistory([]);
+      localStorage.removeItem('compatibilityHistory');
+    }
+  };
 
   const searchLocation = async (personNum: 1 | 2, query: string) => {
     if (!query || query.length < 3) return;
@@ -230,6 +296,13 @@ This partnership brings together complementary energies. Your charts reveal natu
         };
         
         setAnalysis(transformedAnalysis);
+        
+        // Send notification
+        sendNotification({
+          type: 'compatibility',
+          title: '❤️ Compatibility Analysis Complete!',
+          message: `${person1.name} & ${person2.name}: ${transformedAnalysis.overall_score}/${transformedAnalysis.max_score} compatibility score calculated.`
+        });
       } else {
         throw new Error('Compatibility analysis failed');
       }
@@ -271,9 +344,9 @@ This partnership brings together complementary energies. Your charts reveal natu
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-rose-200 to-pink-200 bg-clip-text text-transparent flex items-center justify-center gap-4">
             <Heart className="w-10 h-10 text-rose-400" strokeWidth={2} />
-            Relationship Compatibility
+            {t.title || 'Relationship Compatibility'}
           </h1>
-          <p className="text-slate-400 mt-4 text-lg">Vedic Kundali Milan & Western Synastry Analysis</p>
+          <p className="text-slate-400 mt-4 text-lg">{t.subtitle || 'Vedic Kundali Milan & Western Synastry Analysis'}</p>
           
           {/* Analysis Type Selector */}
           <div className="mt-6 flex justify-center gap-4">
@@ -297,7 +370,85 @@ This partnership brings together complementary energies. Your charts reveal natu
             >
               ⭐ Western (Synastry)
             </button>
+            {history.length > 0 && (
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="px-6 py-3 rounded-xl font-semibold bg-slate-800/50 text-slate-400 hover:bg-slate-700/50 transition-all flex items-center gap-2"
+                title="View recent comparisons"
+              >
+                <History className="w-5 h-5" />
+                History ({history.length})
+              </button>
+            )}
           </div>
+
+          {/* History Panel */}
+          {showHistory && history.length > 0 && (
+            <div className="mt-6 max-w-4xl mx-auto">
+              <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <History className="w-5 h-5 text-rose-400" />
+                    Recent Comparisons
+                  </h3>
+                  <button
+                    onClick={clearHistory}
+                    className="text-sm text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Clear All
+                  </button>
+                </div>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {history.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="bg-slate-800/50 rounded-xl p-4 hover:bg-slate-700/50 transition-all cursor-pointer border border-slate-700/30 group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1" onClick={() => loadFromHistory(entry)}>
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-white font-semibold">
+                              {entry.person1.name} & {entry.person2.name}
+                            </span>
+                            {entry.score !== undefined && (
+                              <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                entry.score >= 28 ? 'bg-green-500/20 text-green-300' :
+                                entry.score >= 18 ? 'bg-yellow-500/20 text-yellow-300' :
+                                'bg-red-500/20 text-red-300'
+                              }`}>
+                                {entry.score}/36
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Star className="w-3 h-3" />
+                              {entry.type === 'vedic' ? 'Vedic' : 'Western'}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(entry.timestamp).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteHistoryEntry(entry.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-400 p-2"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Input Forms */}
@@ -306,7 +457,7 @@ This partnership brings together complementary energies. Your charts reveal natu
           <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
               <Users className="w-6 h-6 text-rose-400" />
-              Person 1
+              {t.person1 || 'Person 1'}
             </h2>
             
             <div className="space-y-4">
@@ -403,7 +554,7 @@ This partnership brings together complementary energies. Your charts reveal natu
           <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
             <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
               <Users className="w-6 h-6 text-pink-400" />
-              Person 2
+              {t.person2 || 'Person 2'}
             </h2>
             
             <div className="space-y-4">
@@ -498,7 +649,7 @@ This partnership brings together complementary energies. Your charts reveal natu
         </div>
 
         {/* Analyze Button */}
-        <div className="flex justify-center">
+        <div className="flex items-center justify-center gap-4">
           <button
             onClick={analyzeCompatibility}
             disabled={loading}
@@ -507,15 +658,31 @@ This partnership brings together complementary energies. Your charts reveal natu
             {loading ? (
               <>
                 <Loader2 className="w-6 h-6 animate-spin" />
-                Analyzing Compatibility...
+                {t.analyzing || 'Analyzing Compatibility...'}
               </>
             ) : (
               <>
                 <Heart className="w-6 h-6" />
-                Analyze Compatibility
+                {t.analyze || 'Analyze Compatibility'}
               </>
             )}
           </button>
+
+          {analysis && (
+            <PDFExporter
+              title={`${compatibilityType === 'vedic' ? 'Vedic' : 'Western'} Compatibility Analysis`}
+              content={{
+                person1,
+                person2,
+                type: compatibilityType,
+                score: analysis.overall_score || analysis.compatibility_score || 0,
+                analysis: analysis.interpretation || analysis.summary || '',
+                timestamp: new Date().toISOString()
+              }}
+              filename={`compatibility-${person1.name.replace(/\s+/g, '-')}-${person2.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`}
+              type="compatibility"
+            />
+          )}
         </div>
 
         {/* Results */}

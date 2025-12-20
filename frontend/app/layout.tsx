@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { I18nProvider } from './contexts/I18nContext'
 
 export const metadata: Metadata = {
   title: 'AstroAI - Advanced Vedic & Western Astrology Platform',
@@ -150,7 +151,11 @@ export default function RootLayout({
           }
         `}</style>
       </head>
-      <body>{children}</body>
+      <body>
+        <I18nProvider>
+          {children}
+        </I18nProvider>
+      </body>
     </html>
   )
 }

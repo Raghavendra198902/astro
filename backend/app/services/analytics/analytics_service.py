@@ -180,6 +180,24 @@ class AnalyticsService:
             predictions_result = await db.execute(predictions_stmt)
             predictions_made = predictions_result.scalar() or 0
             
+            # Consultations booked
+            consultations_stmt = select(func.count(AnalyticsEvent.id)).where(
+                AnalyticsEvent.created_at.between(start_date, end_date),
+                AnalyticsEvent.event_category == "consultation",
+                AnalyticsEvent.event_action == "book"
+            )
+            consultations_result = await db.execute(consultations_stmt)
+            consultations_booked = consultations_result.scalar() or 0
+            
+            # Compatibility checks
+            compatibility_stmt = select(func.count(AnalyticsEvent.id)).where(
+                AnalyticsEvent.created_at.between(start_date, end_date),
+                AnalyticsEvent.event_category == "compatibility",
+                AnalyticsEvent.event_action == "analyze"
+            )
+            compatibility_result = await db.execute(compatibility_stmt)
+            compatibility_checks = compatibility_result.scalar() or 0
+            
             # Average response time
             response_stmt = select(func.avg(AnalyticsEvent.response_time_ms)).where(
                 AnalyticsEvent.created_at.between(start_date, end_date),
@@ -225,6 +243,8 @@ class AnalyticsService:
                     "unique_users": unique_users,
                     "charts_generated": charts_generated,
                     "predictions_made": predictions_made,
+                    "consultations_booked": consultations_booked,
+                    "compatibility_checks": compatibility_checks,
                     "avg_response_time_ms": round(avg_response_time, 2),
                     "error_count": error_count,
                     "error_rate_percent": round(error_rate, 2)

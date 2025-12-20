@@ -71,13 +71,14 @@ async def websocket_endpoint(
                 
                 lat = message.get("latitude", 28.6139)
                 lon = message.get("longitude", 77.2090)
+                system = message.get("system", "vedic")  # Allow client to specify system
                 
                 chart_engine = ChartEngine()
                 transit_chart = chart_engine.generate_chart(
                     dt=dt_module.utcnow(),
                     lat=lat,
                     lon=lon,
-                    system="vedic"
+                    system=system
                 )
                 
                 await manager.send_personal_message({

@@ -1,13 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { 
   Sparkles, Mail, Lock, User, Eye, EyeOff, 
-  ArrowRight, CheckCircle, AlertCircle, Chrome
+  ArrowRight, CheckCircle, AlertCircle, Chrome, Crown
 } from 'lucide-react';
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const plan = searchParams.get('plan'); // Get plan from URL (e.g., ?plan=pro)
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -80,12 +84,18 @@ export default function RegisterPage() {
           full_name: formData.name,
           email: formData.email,
           password: formData.password,
+          plan: plan || 'free', // Include plan in registration
         }),
       });
 
       if (response.ok) {
         // Redirect to login or dashboard
-        window.location.href = '/auth/login';
+        if (plan === 'pro') {
+          // For Pro plan, redirect to payment/onboarding
+          window.location.href = '/dashboard?trial=true';
+        } else {
+          window.location.href = '/auth/login';
+        }
       } else {
         const data = await response.json();
         setErrors({ submit: data.message || 'Registration failed' });
@@ -144,8 +154,20 @@ export default function RegisterPage() {
         {/* Registration Form Card */}
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl">
           <div className="mb-8">
-            <h1 className="text-3xl font-black text-white mb-2">Create Account</h1>
-            <p className="text-gray-400">Start your cosmic journey today</p>
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-3xl font-black text-white">Create Account</h1>
+              {plan === 'pro' && (
+                <div className="flex items-center space-x-1 px-3 py-1 bg-gradient-to-r from-purple-500/20 to-pink-600/20 border border-purple-500/30 rounded-full">
+                  <Crown className="w-4 h-4 text-yellow-400" />
+                  <span className="text-sm font-bold text-purple-300">Pro Trial</span>
+                </div>
+              )}
+            </div>
+            <p className="text-gray-400">
+              {plan === 'pro' 
+                ? 'Start your 7-day Pro trial - no credit card required' 
+                : 'Start your cosmic journey today'}
+            </p>
           </div>
 
           {/* Google Sign Up Button */}

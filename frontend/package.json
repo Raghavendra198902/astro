@@ -13,6 +13,8 @@
     "test:unit": "jest __tests__/utils",
     "test:integration": "jest __tests__/api",
     "test:regression": "jest __tests__/regression",
+    "test:i18n": "jest __tests__/i18n __tests__/components/LanguageSwitcher.test.tsx __tests__/hooks/useTranslations.test.ts __tests__/integration/i18n-integration.test.tsx --coverage",
+    "test:html": "jest --coverage && echo '\n✅ Test report generated at: test-reports/test-report.html'",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
@@ -22,6 +24,7 @@
   "dependencies": {
     "lucide-react": "^0.468.0",
     "next": "16.0.8",
+    "next-intl": "^4.6.1",
     "react": "19.2.1",
     "react-dom": "19.2.1"
   },
@@ -35,6 +38,7 @@
     "autoprefixer": "^10.4.23",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
+    "jest-html-reporters": "^3.1.7",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"

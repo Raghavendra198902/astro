@@ -42,6 +42,7 @@ async def generate_chart_quick(
         longitude = float(chart_data.get("longitude", 0))
         timezone_str = chart_data.get("timezone", "Asia/Kolkata")
         chart_type = chart_data.get("chartType", "rasi")  # Get chart type
+        chart_system = chart_data.get("system", "vedic")  # Get system (vedic or western)
         
         # Combine date and time
         dt_local = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
@@ -49,12 +50,12 @@ async def generate_chart_quick(
         dt_local = tz.localize(dt_local)
         dt_utc = dt_local.astimezone(pytz.UTC)
         
-        # Calculate base chart (D1/Rasi)
+        # Calculate base chart (D1/Rasi) using the requested system
         chart_json = calculate_chart(
             dt_utc,
             latitude,
             longitude,
-            system="vedic"
+            system=chart_system
         )
         
         # Handle divisional charts
@@ -94,7 +95,7 @@ async def generate_chart_quick(
                     current_utc,
                     latitude,
                     longitude,
-                    system="vedic"
+                    system=chart_system
                 )
                 chart_json["transits"] = {
                     "timestamp": current_utc.isoformat(),
@@ -146,12 +147,13 @@ async def create_natal_chart(
             # If no profile_id, would need these fields in ChartCreate - for now return error
             raise HTTPException(status_code=400, detail="profile_id is required")
         
-        # Calculate base chart
+        # Calculate base chart using the requested system
+        system_str = "vedic" if chart_data.system.value == "vedic" else "western"
         chart_json = calculate_chart(
             birth_datetime,
             latitude,
             longitude,
-            system="vedic"  # Use profile.preferred_system if needed
+            system=system_str
         )
         
         # Add divisional charts

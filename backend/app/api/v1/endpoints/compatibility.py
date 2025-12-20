@@ -64,11 +64,12 @@ async def kundali_milan_analysis(
             "dosha_compatible": mangal1["has_dosha"] == mangal2["has_dosha"]
         }
         
-        # Save analysis
+        # Save analysis with the system from the charts
+        chart_system = chart1.system.value if hasattr(chart1.system, 'value') else str(chart1.system)
         analysis = CompatibilityRequestModel(
             chart_a_id=chart1.id,
             chart_b_id=chart2.id,
-            system="vedic",
+            system=chart_system,
             raw_json=analysis_data,
             guna_score=guna_result["total_score"]
         )

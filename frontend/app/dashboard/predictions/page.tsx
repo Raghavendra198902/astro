@@ -6,82 +6,47 @@ import {
   DollarSign, Activity, AlertCircle, CheckCircle, Info, 
   ChevronRight, Star, Moon, Sun, History, FastForward, 
   Blend, Brain, Target, Zap, Award, Globe, Languages,
-  Share2, Download, FileText, MessageCircle 
+  Share2, Download, FileText, MessageCircle, User 
 } from 'lucide-react';
 import { API_URL } from '@/app/config';
+import PDFExporter from '@/app/components/PDFExporter';
+import { sendNotification } from '@/app/components/NotificationCenter';
+import { addActivity } from '@/app/components/ActivityTimeline';
+import { useTranslations } from '@/app/hooks/useTranslations';
+import type { Locale } from '@/i18n/config';
 
-type Language = 'en' | 'mr' | 'hi';
 type TimePeriod = 'past' | 'future' | 'both';
-
-// Marathi translations
-const translations = {
-  en: {
-    title: 'AI-Powered Life Predictions',
-    subtitle: 'Enhanced ML predictions with 100% accuracy focus',
-    generateBtn: 'Generate AI Predictions',
-    loading: 'Generating predictions...',
-    noProfile: 'No Profile Found',
-    createProfile: 'Please create your birth profile first',
-    language: 'Language',
-    accuracy: 'Accuracy',
-    confidence: 'Confidence',
-    mlAnalysis: 'ML Analysis',
-    recommendations: 'Recommendations',
-    astrological: 'Astrological Basis'
-  },
-  mr: {
-    title: 'AI-सक्षम जीवन भविष्यवाणी',
-    subtitle: '100% अचूकतेसह वर्धित ML भविष्यवाणी',
-    generateBtn: 'AI भविष्यवाणी तयार करा',
-    loading: 'भविष्यवाणी तयार करत आहे...',
-    noProfile: 'प्रोफाइल सापडले नाही',
-    createProfile: 'कृपया प्रथम तुमची जन्म प्रोफाइल तयार करा',
-    language: 'भाषा',
-    accuracy: 'अचूकता',
-    confidence: 'विश्वास',
-    mlAnalysis: 'ML विश्लेषण',
-    recommendations: 'शिफारशी',
-    astrological: 'ज्योतिषीय आधार'
-  },
-  hi: {
-    title: 'AI-संचालित जीवन भविष्यवाणी',
-    subtitle: '100% सटीकता के साथ उन्नत ML भविष्यवाणी',
-    generateBtn: 'AI भविष्यवाणी उत्पन्न करें',
-    loading: 'भविष्यवाणी उत्पन्न हो रही है...',
-    noProfile: 'प्रोफ़ाइल नहीं मिली',
-    createProfile: 'कृपया पहले अपनी जन्म प्रोफ़ाइल बनाएं',
-    language: 'भाषा',
-    accuracy: 'सटीकता',
-    confidence: 'आत्मविश्वास',
-    mlAnalysis: 'ML विश्लेषण',
-    recommendations: 'सिफारिशें',
-    astrological: 'ज्योतिषीय आधार'
-  }
-};
 
 // Life area icons and colors
 const areaConfig = {
-  career: { icon: Briefcase, color: 'blue', label: { en: 'Career', mr: 'करिअर', hi: 'करियर' } },
-  relationships: { icon: Heart, color: 'pink', label: { en: 'Relationships', mr: 'नातेसंबंध', hi: 'रिश्ते' } },
-  health: { icon: Activity, color: 'green', label: { en: 'Health', mr: 'आरोग्य', hi: 'स्वास्थ्य' } },
-  finance: { icon: DollarSign, color: 'yellow', label: { en: 'Finance', mr: 'आर्थिक', hi: 'वित्त' } },
-  personal: { icon: Star, color: 'purple', label: { en: 'Personal', mr: 'वैयक्तिक', hi: 'व्यक्तिगत' } },
-  spiritual: { icon: Sparkles, color: 'indigo', label: { en: 'Spiritual', mr: 'आध्यात्मिक', hi: 'आध्यात्मिक' } },
-  education: { icon: Brain, color: 'cyan', label: { en: 'Education', mr: 'शिक्षण', hi: 'शिक्षा' } },
-  family: { icon: Heart, color: 'rose', label: { en: 'Family', mr: 'कुटुंब', hi: 'परिवार' } },
+  career: { icon: Briefcase, color: 'blue', key: 'career', label: { en: 'Career', mr: 'करिअर', hi: 'करियर' } },
+  relationships: { icon: Heart, color: 'pink', key: 'relationships', label: { en: 'Relationships', mr: 'नातेसंबंध', hi: 'रिश्ते' } },
+  health: { icon: Activity, color: 'green', key: 'health', label: { en: 'Health', mr: 'आरोग्य', hi: 'स्वास्थ्य' } },
+  finance: { icon: DollarSign, color: 'yellow', key: 'finance', label: { en: 'Finance', mr: 'आर्थिक', hi: 'वित्त' } },
+  personal: { icon: Star, color: 'purple', key: 'personal', label: { en: 'Personal', mr: 'वैयक्तिक', hi: 'व्यक्तिगत' } },
+  spiritual: { icon: Sparkles, color: 'indigo', key: 'spiritual', label: { en: 'Spiritual', mr: 'आध्यात्मिक', hi: 'आध्यात्मिक' } },
+  education: { icon: Brain, color: 'cyan', key: 'education', label: { en: 'Education', mr: 'शिक्षण', hi: 'शिक्षा' } },
+  family: { icon: Heart, color: 'rose', key: 'family', label: { en: 'Family', mr: 'कुटुंब', hi: 'परिवार' } },
 };
 
 export default function EnhancedPredictionsPage() {
-  const [language, setLanguage] = useState<Language>('en');
+  const { locale, predictions: t } = useTranslations();
+  const [language, setLanguage] = useState<Locale>(locale); // Sync with global locale
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('both');
   const [loading, setLoading] = useState(false);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
   const [userChart, setUserChart] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [profileChecked, setProfileChecked] = useState(false);
   const [selectedPrediction, setSelectedPrediction] = useState<any>(null);
   const [aggressiveMode, setAggressiveMode] = useState(true); // 🔥 Aggressive Mode
+  
+  // 🌟 NEW: Lifetime predictions state
+  const [showLifetimeView, setShowLifetimeView] = useState(false);
+  const [lifetimeData, setLifetimeData] = useState<any>(null);
+  const [lifetimeLoading, setLifetimeLoading] = useState(false);
   
   // 🏢 Enterprise Features
   const [wsConnected, setWsConnected] = useState(false);
@@ -89,14 +54,16 @@ export default function EnhancedPredictionsPage() {
   const [cacheStatus, setCacheStatus] = useState<'cached' | 'fresh' | null>(null);
   const [responseTime, setResponseTime] = useState<number>(0);
 
-  const t = translations[language];
-
   // 🏢 WebSocket Connection for Live Updates
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token || !userProfile) return;
 
-    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}/api/v1/ws?token=${token}`);
+    // Construct WebSocket URL from API_URL
+    let wsUrl = API_URL.replace('http://', 'ws://').replace('https://', 'wss://');
+    wsUrl = `${wsUrl}/api/v1/ws?token=${token}`;
+
+    const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       setWsConnected(true);
@@ -111,11 +78,15 @@ export default function EnhancedPredictionsPage() {
     };
 
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      
-      if (data.type === 'transit_update' || data.type === 'transit_response') {
-        setLiveTransits(data.planets);
-        console.log('🌟 Live transit update received');
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'transit_update' || data.type === 'transit_response') {
+          setLiveTransits(data.planets);
+          console.log('🌟 Live transit update received');
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
       }
     };
 
@@ -138,7 +109,9 @@ export default function EnhancedPredictionsPage() {
 
     return () => {
       clearInterval(heartbeat);
-      ws.close();
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
     };
   }, [userProfile]);
 
@@ -158,6 +131,7 @@ export default function EnhancedPredictionsPage() {
       if (profileRes.ok) {
         const profiles = await profileRes.json();
         if (profiles.length > 0) {
+          setAllProfiles(profiles);
           setUserProfile(profiles[0]);
           
           // Fetch chart
@@ -253,6 +227,26 @@ export default function EnhancedPredictionsPage() {
           methods: data.ml_methods
         });
         
+        // Send notification
+        sendNotification({
+          type: 'prediction',
+          title: '✨ Predictions Generated!',
+          message: `Successfully generated ${data.total_predictions || data.predictions?.length || 0} AI-powered predictions for your journey.`
+        });
+
+        // Add to activity timeline
+        addActivity({
+          type: 'prediction_generated',
+          title: 'Predictions Generated',
+          description: `Generated ${data.total_predictions || data.predictions?.length || 0} AI-powered predictions`,
+          status: 'success',
+          metadata: {
+            count: data.total_predictions || data.predictions?.length || 0,
+            language: language,
+            period: timePeriod
+          }
+        });
+        
         // 🏢 Check cache status from headers
         const cacheHeader = response.headers.get('X-Cache-Status');
         setCacheStatus(cacheHeader === 'HIT' ? 'cached' : 'fresh');
@@ -290,13 +284,79 @@ export default function EnhancedPredictionsPage() {
     }
   };
 
+  // 🌟 NEW: Generate lifetime predictions
+  const generateLifetimePredictions = async () => {
+    if (!userProfile) return;
+    
+    setLifetimeLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Parse birth date properly (avoid timezone issues)
+      const dobDate = new Date(userProfile.dob_ts_utc);
+      const birthDateStr = `${dobDate.getUTCFullYear()}-${String(dobDate.getUTCMonth() + 1).padStart(2, '0')}-${String(dobDate.getUTCDate()).padStart(2, '0')}`;
+      const birthTimeStr = `${String(dobDate.getUTCHours()).padStart(2, '0')}:${String(dobDate.getUTCMinutes()).padStart(2, '0')}:${String(dobDate.getUTCSeconds()).padStart(2, '0')}`;
+      const currentAge = calculateAge(birthDateStr);
+      
+      console.log(`[LIFETIME PRED] Birth Date: ${birthDateStr}, Time: ${birthTimeStr}, Current Age: ${currentAge}`);
+      
+      // Fixed: correct API endpoint path
+      const response = await fetch(`${API_URL}/api/v1/predictions/events/lifetime`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          full_name: userProfile.name,
+          birth_date: birthDateStr,
+          birth_time: birthTimeStr,
+          birth_place: userProfile.birthplace_text,
+          latitude: userProfile.latitude,
+          longitude: userProfile.longitude,
+          current_age: currentAge,
+          prediction_years: 1
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLifetimeData(data);
+        setShowLifetimeView(true);
+      } else if (response.status === 401) {
+        window.location.href = '/auth/login';
+      }
+    } catch (error) {
+      console.error('Failed to generate lifetime predictions:', error);
+    } finally {
+      setLifetimeLoading(false);
+    }
+  };
+
   const calculateAge = (birthDate: string) => {
-    const birth = new Date(birthDate);
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
+    try {
+      // Parse birth date (expects YYYY-MM-DD format)
+      const [year, month, day] = birthDate.split('-').map(Number);
+      const birth = new Date(year, month - 1, day); // month is 0-indexed in JS
+      
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      
+      // Adjust if birthday hasn't occurred this year
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      
+      console.log(`[AGE CALC] Birth: ${birthDate} (Year: ${year}, Month: ${month}, Day: ${day})`);
+      console.log(`[AGE CALC] Today: ${today.toISOString().split('T')[0]} (Year: ${today.getFullYear()}, Month: ${today.getMonth() + 1}, Day: ${today.getDate()})`);
+      console.log(`[AGE CALC] Calculated Age: ${age}, Month Diff: ${monthDiff}`);
+      
+      return age;
+    } catch (error) {
+      console.error('[AGE CALC ERROR]', error, 'Birth Date:', birthDate);
+      return 0;
+    }
   };
 
   const getConfidenceColor = (confidence: string) => {
@@ -392,6 +452,30 @@ export default function EnhancedPredictionsPage() {
           
           {/* Language Selector & Aggressive Mode Toggle */}
           <div className="space-y-4">
+            {/* Profile Selector */}
+            {allProfiles.length > 1 && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
+                <label className="text-sm font-semibold mb-3 block flex items-center">
+                  <User className="w-5 h-5 mr-2" />
+                  Select Profile
+                </label>
+                <select
+                  value={userProfile?.id || ''}
+                  onChange={(e) => {
+                    const selected = allProfiles.find(p => p.id === e.target.value);
+                    if (selected) setUserProfile(selected);
+                  }}
+                  className="bg-white text-gray-800 px-4 py-3 rounded-xl font-semibold cursor-pointer hover:shadow-lg transition w-full"
+                >
+                  {allProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name} - {new Date(profile.dob_ts_utc).toLocaleDateString()} ({profile.birthplace_text})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
               <label className="text-sm font-semibold mb-3 block flex items-center">
                 <Languages className="w-5 h-5 mr-2" />
@@ -399,7 +483,7 @@ export default function EnhancedPredictionsPage() {
               </label>
               <select
                 value={language}
-                onChange={(e) => setLanguage(e.target.value as Language)}
+                onChange={(e) => setLanguage(e.target.value as Locale)}
                 className="bg-white text-gray-800 px-4 py-3 rounded-xl font-semibold cursor-pointer hover:shadow-lg transition w-full"
               >
                 <option value="en">English</option>
@@ -409,6 +493,25 @@ export default function EnhancedPredictionsPage() {
             </div>
             
             {/* 🔥 Aggressive Mode Toggle */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
+              <label className="text-sm font-semibold mb-3 block flex items-center">
+                <Calendar className="w-5 h-5 mr-2" />
+                Prediction Timeframe
+              </label>
+              <select
+                value={timePeriod}
+                onChange={(e) => setTimePeriod(e.target.value as TimePeriod)}
+                className="bg-white text-gray-800 px-4 py-3 rounded-xl font-semibold cursor-pointer hover:shadow-lg transition w-full"
+              >
+                <option value="both">Both Past & Future</option>
+                <option value="past">Past Events Only</option>
+                <option value="future">Future Predictions Only</option>
+              </select>
+              <p className="text-xs text-white/70 mt-2">
+                Filter predictions by time period
+              </p>
+            </div>
+
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
               <label className="text-sm font-semibold mb-3 block flex items-center">
                 <Zap className="w-5 h-5 mr-2" />
@@ -434,6 +537,616 @@ export default function EnhancedPredictionsPage() {
         </div>
       </div>
 
+      {/* 🌟 NEW: View Toggle - Standard vs Lifetime */}
+      <div className="flex justify-center space-x-4">
+        <button
+          onClick={() => setShowLifetimeView(false)}
+          className={`px-8 py-3 rounded-full font-semibold transition-all ${
+            !showLifetimeView
+              ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          <Sparkles className="w-5 h-5 inline mr-2" />
+          Standard Predictions
+        </button>
+        <button
+          onClick={() => {
+            if (!lifetimeData) {
+              generateLifetimePredictions();
+            } else {
+              setShowLifetimeView(true);
+            }
+          }}
+          disabled={lifetimeLoading}
+          className={`px-8 py-3 rounded-full font-semibold transition-all ${
+            showLifetimeView
+              ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          } ${lifetimeLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <TrendingUp className="w-5 h-5 inline mr-2" />
+          {lifetimeLoading ? 'Generating...' : 'Lifetime View (0-100 years)'}
+        </button>
+      </div>
+
+      {/* Lifetime View */}
+      {showLifetimeView && lifetimeData && (
+        <div className="space-y-6">
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border-2 border-blue-200">
+              <div className="flex items-center justify-between mb-2">
+                <History className="w-8 h-8 text-blue-600" />
+                <span className="text-3xl font-bold text-blue-600">{lifetimeData.statistics.past_years}</span>
+              </div>
+              <p className="text-sm text-blue-800 font-semibold">Years Analyzed (Past)</p>
+              <p className="text-xs text-blue-600 mt-1">
+                Sentiment: {lifetimeData.statistics.avg_past_sentiment > 0 ? '+' : ''}{lifetimeData.statistics.avg_past_sentiment}
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border-2 border-green-200">
+              <div className="flex items-center justify-between mb-2">
+                <FastForward className="w-8 h-8 text-green-600" />
+                <span className="text-3xl font-bold text-green-600">{lifetimeData.statistics.future_years}</span>
+              </div>
+              <p className="text-sm text-green-800 font-semibold">Years Predicted (Future)</p>
+              <p className="text-xs text-green-600 mt-1">
+                Sentiment: {lifetimeData.statistics.avg_future_sentiment > 0 ? '+' : ''}{lifetimeData.statistics.avg_future_sentiment}
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border-2 border-purple-200">
+              <div className="flex items-center justify-between mb-2">
+                <Star className="w-8 h-8 text-purple-600" />
+                <span className="text-3xl font-bold text-purple-600">{lifetimeData.statistics.major_events_count}</span>
+              </div>
+              <p className="text-sm text-purple-800 font-semibold">Major Life Events</p>
+              <p className="text-xs text-purple-600 mt-1">Significant milestones detected</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border-2 border-orange-200">
+              <div className="flex items-center justify-between mb-2">
+                <Target className="w-8 h-8 text-orange-600" />
+                <span className="text-3xl font-bold text-orange-600">
+                  {lifetimeData.metadata.accuracy_estimate}
+                </span>
+              </div>
+              <p className="text-sm text-orange-800 font-semibold">AI Accuracy</p>
+              <p className="text-xs text-orange-600 mt-1">Machine learning powered</p>
+            </div>
+          </div>
+
+          {/* Line Chart */}
+          <div className="bg-white rounded-2xl p-8 shadow-lg border-2 border-gray-200">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+                <TrendingUp className="w-6 h-6 mr-3 text-purple-600" />
+                Life Sentiment Timeline (0-100 Years)
+              </h2>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-green-500 rounded mr-2"></div>
+                  <span className="text-sm text-gray-600">Positive</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-red-500 rounded mr-2"></div>
+                  <span className="text-sm text-gray-600">Negative</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-4 h-4 bg-blue-500 rounded mr-2"></div>
+                  <span className="text-sm text-gray-600">Current Age</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white mr-2"></div>
+                  <span className="text-sm text-gray-600">Past Events</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-yellow-400 mr-2"></div>
+                  <span className="text-sm text-gray-600">Future Events</span>
+                </div>
+              </div>
+            </div>
+
+            {/* SVG Line Chart */}
+            <div className="w-full overflow-x-auto">
+              <svg width="100%" height="600" viewBox="0 0 1400 600" className="border border-gray-200 rounded-lg bg-gradient-to-b from-gray-50 to-white">
+                {/* Title */}
+                <text x="700" y="25" fontSize="20" fontWeight="bold" fill="#1f2937" textAnchor="middle">
+                  Life Sentiment Journey: Birth to Century
+                </text>
+                <text x="700" y="40" fontSize="11" fill="#6b7280" textAnchor="middle">
+                  AI-Powered Vedic Predictions • {lifetimeData.sentiment_timeline.length} Years Analyzed
+                </text>
+
+                {/* Grid lines with labels */}
+                {[0, 20, 40, 60, 80, 100].map((value) => (
+                  <g key={`grid-${value}`}>
+                    <line
+                      x1="80"
+                      y1={400 - (value * 3)}
+                      x2="1320"
+                      y2={400 - (value * 3)}
+                      stroke="#e5e7eb"
+                      strokeWidth="1"
+                      strokeDasharray="5,5"
+                    />
+                    <text x="15" y={405 - (value * 3)} fontSize="14" fill="#6b7280" fontWeight="500">
+                      {value > 50 ? `+${value - 50}` : value < 50 ? `-${50 - value}` : '0'}
+                    </text>
+                    <text x="1335" y={405 - (value * 3)} fontSize="10" fill="#9ca3af">
+                      {value}%
+                    </text>
+                  </g>
+                ))}
+
+                {/* Decade background shading */}
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((decade) => (
+                  <rect
+                    key={`decade-bg-${decade}`}
+                    x={80 + (decade * 124)}
+                    y="100"
+                    width="124"
+                    height="300"
+                    fill={decade % 2 === 0 ? 'rgba(99, 102, 241, 0.03)' : 'rgba(168, 85, 247, 0.03)'}
+                  />
+                ))}
+
+                {/* Zero line with label */}
+                <line
+                  x1="80"
+                  y1="250"
+                  x2="1320"
+                  y2="250"
+                  stroke="#374151"
+                  strokeWidth="3"
+                />
+                <text x="50" y="255" fontSize="12" fontWeight="bold" fill="#374151">
+                  NEUTRAL
+                </text>
+
+                {/* Positive area (green gradient) */}
+                <defs>
+                  <linearGradient id="positiveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="rgba(34, 197, 94, 0.5)" />
+                    <stop offset="100%" stopColor="rgba(34, 197, 94, 0.1)" />
+                  </linearGradient>
+                  <linearGradient id="negativeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="rgba(239, 68, 68, 0.1)" />
+                    <stop offset="100%" stopColor="rgba(239, 68, 68, 0.5)" />
+                  </linearGradient>
+                </defs>
+
+                <path
+                  d={`M 80 250 ${lifetimeData.sentiment_timeline
+                    .map((point: any, idx: number) => {
+                      const x = 80 + (idx * 12.4); // 12.4px per year for 100 years
+                      const y = 250 - (point.positive_score * 2); // Scale to fit chart
+                      return `L ${x} ${y}`;
+                    })
+                    .join(' ')} L 1320 250 Z`}
+                  fill="url(#positiveGradient)"
+                  stroke="rgb(34, 197, 94)"
+                  strokeWidth="3"
+                />
+
+                {/* Negative area (red gradient) */}
+                <path
+                  d={`M 80 250 ${lifetimeData.sentiment_timeline
+                    .map((point: any, idx: number) => {
+                      const x = 80 + (idx * 12.4);
+                      const y = 250 + (point.negative_score * 2);
+                      return `L ${x} ${y}`;
+                    })
+                    .join(' ')} L 1320 250 Z`}
+                  fill="url(#negativeGradient)"
+                  stroke="rgb(239, 68, 68)"
+                  strokeWidth="3"
+                />
+
+                {/* Life phase dividers and labels with age ranges */}
+                {[
+                  { age: 0, label: 'Birth', ageRange: '0-12', phase: 'Childhood', color: '#8b5cf6', description: 'Foundation Years' },
+                  { age: 13, label: 'Teen', ageRange: '13-19', phase: 'Adolescence', color: '#3b82f6', description: 'Self Discovery' },
+                  { age: 20, label: 'Youth', ageRange: '20-35', phase: 'Young Adult', color: '#10b981', description: 'Career Building' },
+                  { age: 36, label: 'Midlife', ageRange: '36-55', phase: 'Mid Life', color: '#f59e0b', description: 'Peak Years' },
+                  { age: 56, label: 'Mature', ageRange: '56-70', phase: 'Mature', color: '#ef4444', description: 'Wisdom Era' },
+                  { age: 71, label: 'Senior', ageRange: '71-100', phase: 'Senior', color: '#6366f1', description: 'Legacy Years' }
+                ].map((phase) => {
+                  const birthYear = new Date(lifetimeData.birth_date).getFullYear();
+                  const startAge = parseInt(phase.ageRange.split('-')[0]);
+                  const endAge = parseInt(phase.ageRange.split('-')[1]);
+                  const startYear = birthYear + startAge;
+                  const endYear = birthYear + endAge;
+                  
+                  return (
+                    <g key={`phase-${phase.age}`}>
+                      <line
+                        x1={80 + (phase.age * 12.4)}
+                        y1="100"
+                        x2={80 + (phase.age * 12.4)}
+                        y2="400"
+                        stroke={phase.color}
+                        strokeWidth="2"
+                        strokeDasharray="3,3"
+                        opacity="0.5"
+                      />
+                      <text
+                        x={80 + (phase.age * 12.4)}
+                        y="75"
+                        fontSize="10"
+                        fontWeight="700"
+                        fill={phase.color}
+                        textAnchor="middle"
+                      >
+                        {phase.phase}
+                      </text>
+                      <text
+                        x={80 + (phase.age * 12.4)}
+                        y="88"
+                        fontSize="8"
+                        fill={phase.color}
+                        textAnchor="middle"
+                        opacity="0.8"
+                      >
+                        {phase.ageRange} • {startYear}-{endYear}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Current age marker */}
+                {lifetimeData.current_age <= 100 && (
+                  <g>
+                    <line
+                      x1={80 + (lifetimeData.current_age * 12.4)}
+                      y1="60"
+                      x2={80 + (lifetimeData.current_age * 12.4)}
+                      y2="400"
+                      stroke="#3b82f6"
+                      strokeWidth="4"
+                      strokeDasharray="10,5"
+                    />
+                    <circle
+                      cx={80 + (lifetimeData.current_age * 12.4)}
+                      cy="45"
+                      r="22"
+                      fill="#3b82f6"
+                    />
+                    <text
+                      x={80 + (lifetimeData.current_age * 12.4)}
+                      y="50"
+                      fontSize="13"
+                      fontWeight="bold"
+                      fill="white"
+                      textAnchor="middle"
+                    >
+                      {lifetimeData.current_age}
+                    </text>
+                    <text
+                      x={80 + (lifetimeData.current_age * 12.4)}
+                      y="30"
+                      fontSize="9"
+                      fontWeight="bold"
+                      fill="#3b82f6"
+                      textAnchor="middle"
+                    >
+                      TODAY ({new Date().getFullYear()})
+                    </text>
+                  </g>
+                )}
+
+                {/* 5-year milestone markers with years */}
+                {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map((age) => {
+                  const birthYear = new Date(lifetimeData.birth_date).getFullYear();
+                  const year = birthYear + age;
+                  const isPast = age <= lifetimeData.current_age;
+                  
+                  return (
+                    <g key={`milestone-${age}`}>
+                      <line
+                        x1={80 + (age * 12.4)}
+                        y1="395"
+                        x2={80 + (age * 12.4)}
+                        y2="405"
+                        stroke={isPast ? '#3b82f6' : '#9ca3af'}
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={80 + (age * 12.4)}
+                        y="420"
+                        fontSize="10"
+                        fontWeight={age % 10 === 0 ? '700' : '500'}
+                        fill={isPast ? '#1f2937' : '#6b7280'}
+                        textAnchor="middle"
+                      >
+                        {age}
+                      </text>
+                      {age % 10 === 0 && (
+                        <text
+                          x={80 + (age * 12.4)}
+                          y="505"
+                          fontSize="9"
+                          fontWeight="600"
+                          fill={isPast ? '#3b82f6' : '#9ca3af'}
+                          textAnchor="middle"
+                        >
+                          {year}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+
+                {/* Major events markers with enhanced styling */}
+                {lifetimeData.major_events.map((event: any, idx: number) => {
+                  const x = 80 + (event.age * 12.4);
+                  const baseY = 250 - (event.impact * 20);
+                  const isPast = event.age <= lifetimeData.current_age;
+                  
+                  return (
+                    <g key={`event-${idx}`}>
+                      <circle
+                        cx={x}
+                        cy={baseY}
+                        r={isPast ? "8" : "10"}
+                        fill={event.impact > 0 ? '#10b981' : '#ef4444'}
+                        stroke={isPast ? 'white' : '#fbbf24'}
+                        strokeWidth={isPast ? "3" : "4"}
+                        opacity={isPast ? "0.8" : "1"}
+                      />
+                      <circle
+                        cx={x}
+                        cy={baseY}
+                        r="4"
+                        fill="white"
+                      />
+                      {!isPast && (
+                        <circle
+                          cx={x}
+                          cy={baseY}
+                          r="12"
+                          fill="none"
+                          stroke="#fbbf24"
+                          strokeWidth="2"
+                          opacity="0.5"
+                        />
+                      )}
+                      <title>{`Age ${event.age} (${event.year}): ${event.title} (Impact: ${event.impact > 0 ? '+' : ''}${event.impact.toFixed(1)})`}</title>
+                    </g>
+                  );
+                })}
+
+                {/* Decade labels with years */}
+                {[
+                  { age: 5, ageRange: '0-10', label: 'Infancy', emoji: '👶' },
+                  { age: 15, ageRange: '10-20', label: 'Teens', emoji: '🎓' },
+                  { age: 25, ageRange: '20-30', label: 'Young', emoji: '💼' },
+                  { age: 35, ageRange: '30-40', label: 'Prime', emoji: '🏆' },
+                  { age: 45, ageRange: '40-50', label: 'Mid', emoji: '🎯' },
+                  { age: 55, ageRange: '50-60', label: 'Mature', emoji: '👔' },
+                  { age: 65, ageRange: '60-70', label: 'Senior', emoji: '🌟' },
+                  { age: 75, ageRange: '70-80', label: 'Wise', emoji: '📚' },
+                  { age: 85, ageRange: '80-90', label: 'Elder', emoji: '🕊️' },
+                  { age: 95, ageRange: '90-100', label: 'Century', emoji: '🎂' }
+                ].map((decade) => {
+                  const birthYear = new Date(lifetimeData.birth_date).getFullYear();
+                  const startYear = birthYear + parseInt(decade.ageRange.split('-')[0]);
+                  const endYear = birthYear + parseInt(decade.ageRange.split('-')[1]);
+                  
+                  return (
+                    <g key={`decade-${decade.age}`}>
+                      <text
+                        x={80 + (decade.age * 12.4)}
+                        y="525"
+                        fontSize="18"
+                        textAnchor="middle"
+                      >
+                        {decade.emoji}
+                      </text>
+                      <text
+                        x={80 + (decade.age * 12.4)}
+                        y="543"
+                        fontSize="12"
+                        fontWeight="700"
+                        fill="#374151"
+                        textAnchor="middle"
+                      >
+                        {decade.ageRange}
+                      </text>
+                      <text
+                        x={80 + (decade.age * 12.4)}
+                        y="557"
+                        fontSize="10"
+                        fill="#6b7280"
+                        textAnchor="middle"
+                      >
+                        {decade.label}
+                      </text>
+                      <text
+                        x={80 + (decade.age * 12.4)}
+                        y="573"
+                        fontSize="11"
+                        fontWeight="600"
+                        fill="#3b82f6"
+                        textAnchor="middle"
+                      >
+                        {startYear}-{endYear}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Age axis label */}
+                <text x="700" y="590" fontSize="13" fontWeight="bold" fill="#374151" textAnchor="middle">
+                  Complete Life Timeline • Birth: {new Date(lifetimeData.birth_date).getFullYear()} • Current: {new Date().getFullYear()} • Age {lifetimeData.current_age}
+                </text>
+
+                {/* Y-axis label */}
+                <text x="40" y="250" fontSize="14" fontWeight="bold" fill="#374151" textAnchor="middle" transform={`rotate(-90, 40, 250)`}>
+                  Sentiment Score
+                </text>
+              </svg>
+            </div>
+
+            <p className="mt-6 text-sm text-gray-600 bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+              💡 <strong>How to Read:</strong> Green areas show positive/favorable periods, red areas indicate challenges.
+              <strong className="text-blue-600"> YOU</strong> marker shows current age. Circles mark major life events.
+              Each decade is labeled with emojis (👶 Infancy → 🎂 Century). Life phases are color-coded vertically.
+            </p>
+          </div>
+
+          {/* Best & Challenging Years */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl p-6 border-2 border-green-200">
+              <h3 className="text-xl font-bold text-green-800 mb-4 flex items-center">
+                <Star className="w-6 h-6 mr-2" />
+                Top 5 Best Years
+              </h3>
+              <div className="space-y-3">
+                {lifetimeData.statistics.best_years.map((year: any, idx: number) => (
+                  <div key={idx} className="bg-white rounded-lg p-3 flex items-center justify-between shadow">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl font-bold text-green-600">{idx + 1}</span>
+                      <div>
+                        <p className="font-semibold text-gray-800">Age {year.age} ({year.year})</p>
+                        <p className="text-sm text-gray-600">Score: +{year.score.toFixed(1)}</p>
+                      </div>
+                    </div>
+                    <Award className="w-6 h-6 text-yellow-500" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-50 to-red-100 rounded-2xl p-6 border-2 border-orange-200">
+              <h3 className="text-xl font-bold text-orange-800 mb-4 flex items-center">
+                <AlertCircle className="w-6 h-6 mr-2" />
+                Top 5 Challenging Years
+              </h3>
+              <div className="space-y-3">
+                {lifetimeData.statistics.challenging_years.map((year: any, idx: number) => (
+                  <div key={idx} className="bg-white rounded-lg p-3 flex items-center justify-between shadow">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl font-bold text-orange-600">{idx + 1}</span>
+                      <div>
+                        <p className="font-semibold text-gray-800">Age {year.age} ({year.year})</p>
+                        <p className="text-sm text-gray-600">Score: {year.score.toFixed(1)}</p>
+                      </div>
+                    </div>
+                    <Info className="w-6 h-6 text-orange-500" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Life Phases Analysis */}
+          <div className="bg-white rounded-2xl p-8 shadow-lg border-2 border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+              <Activity className="w-6 h-6 mr-3 text-purple-600" />
+              Life Phases Analysis
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {Object.entries(lifetimeData.life_phases).map(([phase, data]: [string, any]) => (
+                <div
+                  key={phase}
+                  className={`rounded-xl p-5 border-2 ${
+                    data.overall_trend === 'positive'
+                      ? 'bg-green-50 border-green-300'
+                      : data.overall_trend === 'negative'
+                      ? 'bg-orange-50 border-orange-300'
+                      : 'bg-blue-50 border-blue-300'
+                  }`}
+                >
+                  <h3 className="font-bold text-lg capitalize mb-2 text-gray-800">
+                    {phase.replace('_', ' ')}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">Ages {data.age_range}</p>
+                  <div className="space-y-2 text-sm">
+                    <p className="flex justify-between">
+                      <span className="text-gray-700">Avg Sentiment:</span>
+                      <span className="font-bold">{data.avg_sentiment > 0 ? '+' : ''}{data.avg_sentiment}</span>
+                    </p>
+                    <p className="flex justify-between">
+                      <span className="text-gray-700">Major Events:</span>
+                      <span className="font-bold">{data.major_events_count}</span>
+                    </p>
+                    <p className="flex justify-between">
+                      <span className="text-gray-700">Trend:</span>
+                      <span className={`font-bold capitalize ${
+                        data.overall_trend === 'positive'
+                          ? 'text-green-600'
+                          : data.overall_trend === 'negative'
+                          ? 'text-orange-600'
+                          : 'text-blue-600'
+                      }`}>
+                        {data.overall_trend}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Major Events Timeline */}
+          <div className="bg-white rounded-2xl p-8 shadow-lg border-2 border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+              <Calendar className="w-6 h-6 mr-3 text-purple-600" />
+              Major Life Events Timeline
+            </h2>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {lifetimeData.major_events.map((event: any, idx: number) => (
+                <div
+                  key={idx}
+                  className={`border-l-4 pl-4 py-3 ${
+                    event.age <= lifetimeData.current_age
+                      ? 'border-blue-500 bg-blue-50'
+                      : event.impact > 5
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-orange-500 bg-orange-50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-1">
+                        <span className="text-xl font-bold text-gray-800">
+                          Age {event.age} ({event.year})
+                        </span>
+                        {event.age <= lifetimeData.current_age && (
+                          <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">PAST</span>
+                        )}
+                      </div>
+                      <h4 className="font-bold text-lg text-gray-800">{event.title}</h4>
+                      <p className="text-gray-600 text-sm mt-1">{event.description}</p>
+                      <div className="flex items-center space-x-4 mt-2">
+                        <span className="text-xs text-gray-500">Area: <strong>{event.area}</strong></span>
+                        <span className="text-xs text-gray-500">
+                          Impact: <strong>{event.impact}/10</strong>
+                        </span>
+                      </div>
+                    </div>
+                    {areaConfig[event.area as keyof typeof areaConfig] && (
+                      <div className={`p-3 rounded-lg bg-${areaConfig[event.area as keyof typeof areaConfig].color}-100`}>
+                        {(() => {
+                          const Icon = areaConfig[event.area as keyof typeof areaConfig].icon;
+                          return <Icon className={`w-6 h-6 text-${areaConfig[event.area as keyof typeof areaConfig].color}-600`} />;
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Standard Predictions View */}
+      {!showLifetimeView && (
+        <>
       {/* Stats Section */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -490,6 +1203,17 @@ export default function EnhancedPredictionsPage() {
         </button>
 
         {predictions.length > 0 && (
+          <>
+            <PDFExporter
+              title="AI Life Predictions Report"
+              content={predictions}
+              filename={`predictions-${new Date().toISOString().split('T')[0]}.pdf`}
+              type="predictions"
+            />
+          </>
+        )}
+
+        {predictions.length > 0 && (
           <button
             onClick={async () => {
               try {
@@ -528,9 +1252,88 @@ export default function EnhancedPredictionsPage() {
       </div>
 
       {/* Predictions Grid */}
-      {predictions.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {predictions.map((pred, idx) => {
+      {predictions.length > 0 && (() => {
+        const filteredPredictions = predictions.filter((pred) => {
+          const predDate = new Date(pred.date || pred.year || Date.now());
+          const isPast = predDate < new Date();
+          
+          if (timePeriod === 'past') return isPast;
+          if (timePeriod === 'future') return !isPast;
+          return true; // 'both'
+        });
+
+        const isFiltered = timePeriod !== 'both';
+        const filterPercentage = Math.round((filteredPredictions.length / predictions.length) * 100);
+
+        return (
+          <>
+            {/* Prediction Count with Filter Badge */}
+            <div className="text-center mb-6">
+              <div className="inline-flex flex-col items-center bg-white/10 backdrop-blur-sm rounded-2xl px-8 py-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <p className="text-white text-xl font-bold">
+                    Showing {filteredPredictions.length} of {predictions.length} predictions
+                  </p>
+                  {isFiltered && (
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      timePeriod === 'past' 
+                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}>
+                      {timePeriod === 'past' ? '📅 Past Only' : '🔮 Future Only'}
+                    </span>
+                  )}
+                </div>
+                
+                {isFiltered && (
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <div className="w-32 bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className={`h-full ${
+                            timePeriod === 'past' ? 'bg-blue-500' : 'bg-amber-500'
+                          }`}
+                          style={{ width: `${filterPercentage}%` }}
+                        />
+                      </div>
+                      <span className="font-semibold">{filterPercentage}%</span>
+                    </div>
+                    <button
+                      onClick={() => setTimePeriod('both')}
+                      className="text-gray-300 hover:text-white transition-colors underline text-xs"
+                    >
+                      Show All
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {filteredPredictions.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-12 max-w-md mx-auto">
+                  <div className="text-6xl mb-4">
+                    {timePeriod === 'past' ? '📅' : '🔮'}
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-3">
+                    No {timePeriod === 'past' ? 'Past Events' : 'Future Predictions'} Found
+                  </h3>
+                  <p className="text-gray-300 mb-6">
+                    {timePeriod === 'past' 
+                      ? 'All predictions are for future dates. Try selecting "Future Predictions" or "Both".'
+                      : 'All predictions are for past dates. Try selecting "Past Events" or "Both".'}
+                  </p>
+                  <button
+                    onClick={() => setTimePeriod('both')}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all"
+                  >
+                    Show All Predictions
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPredictions.map((pred, idx) => {
             const areaInfo = areaConfig[pred.area as keyof typeof areaConfig];
             const AreaIcon = areaInfo?.icon || Star;
             
@@ -589,8 +1392,12 @@ export default function EnhancedPredictionsPage() {
               </div>
             );
           })}
-        </div>
-      )}
+              </div>
+            )}
+          </>
+        );
+      })()}
+
 
       {/* Detailed Modal */}
       {selectedPrediction && (
@@ -617,7 +1424,7 @@ export default function EnhancedPredictionsPage() {
                 {Object.entries(selectedPrediction.ml_analysis || {}).map(([key, value]) => (
                   <div key={key} className="bg-white rounded-xl p-4">
                     <p className="text-sm text-gray-600 mb-1">{key.replace(/_/g, ' ')}</p>
-                    <p className="text-2xl font-bold text-purple-600">{value}%</p>
+                    <p className="text-2xl font-bold text-purple-600">{typeof value === 'number' ? `${value}%` : String(value)}</p>
                   </div>
                 ))}
               </div>
@@ -771,6 +1578,8 @@ export default function EnhancedPredictionsPage() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

@@ -1,8 +1,18 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Hand, Upload, Camera, Heart, Brain, Star, TrendingUp, Users, Zap, Loader2, Target, Award, Compass, Crown, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Hand, Upload, Camera, Heart, Brain, Star, TrendingUp, Users, Zap, Loader2, Target, Award, Compass, Crown, Sparkles, History, Trash2 } from 'lucide-react';
 import { API_URL } from '@/app/config';
+import PDFExporter from '@/app/components/PDFExporter';
+
+interface PalmReadingHistory {
+  id: string;
+  timestamp: string;
+  thumbnail: string;
+  hand: 'left' | 'right';
+  lines?: any;
+  mounts?: any;
+}
 
 export default function PalmistryPage() {
   const [activeTab, setActiveTab] = useState<'upload' | 'analysis'>('upload');
@@ -12,9 +22,68 @@ export default function PalmistryPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showWebcam, setShowWebcam] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [history, setHistory] = useState<PalmReadingHistory[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Load history from localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('palmReadingHistory');
+    if (savedHistory) {
+      try {
+        setHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error('Failed to parse history:', e);
+      }
+    }
+  }, []);
+
+  // Save to history
+  const saveToHistory = (result: any, image: string) => {
+    const newEntry: PalmReadingHistory = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      thumbnail: image,
+      hand: selectedHand,
+      lines: result.lines,
+      mounts: result.mounts
+    };
+    
+    const updatedHistory = [newEntry, ...history].slice(0, 10); // Keep last 10
+    setHistory(updatedHistory);
+    localStorage.setItem('palmReadingHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Load from history
+  const loadFromHistory = (entry: PalmReadingHistory) => {
+    setImagePreview(entry.thumbnail);
+    setSelectedHand(entry.hand);
+    if (entry.lines || entry.mounts) {
+      setAnalysis({
+        lines: entry.lines,
+        mounts: entry.mounts
+      });
+      setActiveTab('analysis');
+    }
+    setShowHistory(false);
+  };
+
+  // Delete history entry
+  const deleteHistoryEntry = (id: string) => {
+    const updatedHistory = history.filter(h => h.id !== id);
+    setHistory(updatedHistory);
+    localStorage.setItem('palmReadingHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Clear all history
+  const clearHistory = () => {
+    if (confirm('Are you sure you want to clear all palm reading history?')) {
+      setHistory([]);
+      localStorage.removeItem('palmReadingHistory');
+    }
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -153,6 +222,11 @@ export default function PalmistryPage() {
       if (response.ok) {
         const data = await response.json();
         setAnalysis(data.analysis_data);
+        
+        // Save to history with image
+        if (imagePreview) {
+          saveToHistory(data.analysis_data, imagePreview);
+        }
       } else {
         const error = await response.json();
         alert(error.detail || 'Failed to analyze palm');
@@ -208,7 +282,73 @@ export default function PalmistryPage() {
             AI Palm Reading
           </h1>
           <p className="text-slate-400 mt-4 text-lg">Discover your destiny through the ancient art of palmistry</p>
+          
+          {/* History Button */}
+          {history.length > 0 && (
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="mt-4 px-6 py-2 rounded-xl font-semibold bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 transition-all inline-flex items-center gap-2"
+            >
+              <History className="w-4 h-4" />
+              View History ({history.length})
+            </button>
+          )}
         </div>
+
+        {/* History Panel */}
+        {showHistory && history.length > 0 && (
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <History className="w-5 h-5 text-emerald-400" />
+                  Recent Palm Readings
+                </h3>
+                <button
+                  onClick={clearHistory}
+                  className="text-sm text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear All
+                </button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {history.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="relative group cursor-pointer"
+                    onClick={() => loadFromHistory(entry)}
+                  >
+                    <div className="aspect-square rounded-xl overflow-hidden border-2 border-slate-700 group-hover:border-emerald-500 transition-all">
+                      <img
+                        src={entry.thumbnail}
+                        alt={`${entry.hand} hand`}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex flex-col items-center justify-end p-2">
+                      <div className="text-xs text-emerald-300 font-semibold capitalize mb-1">
+                        {entry.hand} Hand
+                      </div>
+                      <div className="text-xs text-white">
+                        {new Date(entry.timestamp).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteHistoryEntry(entry.id);
+                      }}
+                      className="absolute top-2 right-2 p-1 bg-red-500/80 hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Hand Selection */}
         <div className="max-w-2xl mx-auto bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-700/50 p-6">
@@ -434,9 +574,23 @@ export default function PalmistryPage() {
                       <Hand className="w-8 h-8 text-emerald-400" />
                       Palm Reading - {analysis.hand} Hand
                     </h2>
-                    <div className="px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-semibold text-green-300">AI Analysis</span>
+                    <div className="flex items-center gap-3">
+                      <PDFExporter
+                        title={`Palm Reading - ${analysis.hand} Hand`}
+                        content={{
+                          hand: analysis.hand,
+                          lines: analysis.lines,
+                          interpretation: analysis.interpretation || analysis.hand_meaning || '',
+                          analysis: analysis.features || '',
+                          timestamp: new Date().toISOString()
+                        }}
+                        filename={`palmistry-${selectedHand}-hand-${new Date().toISOString().split('T')[0]}.pdf`}
+                        type="palmistry"
+                      />
+                      <div className="px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-lg flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-semibold text-green-300">AI Analysis</span>
+                      </div>
                     </div>
                   </div>
 

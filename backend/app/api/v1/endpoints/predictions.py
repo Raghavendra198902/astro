@@ -18,6 +18,7 @@ from app.services.predictions.multisource_fusion import multisource_fusion_engin
 from app.services.vision.palm_reading import palm_reading_engine
 from app.services.vision.face_reading import face_reading_engine
 from app.services.ai.ml_engine import ml_engine
+from app.services.ai.lifetime_predictor import lifetime_predictor
 
 logger = logging.getLogger(__name__)
 
@@ -428,3 +429,98 @@ async def get_combined_prediction(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Prediction failed: {str(e)}"
         )
+
+
+@router.post("/lifetime")
+async def get_lifetime_predictions(
+    request: LifeEventsPredictionRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🌟 AI-Powered Lifetime Predictions (Birth to 100 years)
+    
+    Generates comprehensive life predictions with:
+    - Year-by-year predictions (101 data points)
+    - Positive/negative sentiment analysis
+    - Major life events detection
+    - Life phase analysis (childhood, adolescence, young adult, mid-life, mature, senior)
+    - Vedic dasha (planetary period) influence
+    - Visualization-ready timeline data
+    
+    Perfect for:
+    - Life planning and goal setting
+    - Understanding life cycles and patterns
+    - Identifying best years for major decisions
+    - Preparing for challenging periods
+    - Long-term strategic planning
+    
+    Returns sentiment timeline optimized for line chart visualization
+    """
+    try:
+        birth_date = datetime.strptime(request.birth_date, "%Y-%m-%d")
+        
+        # Log the incoming data for debugging
+        logger.info(f"Lifetime prediction request - Birth Date: {request.birth_date}, Current Age: {request.current_age}, Full Name: {request.full_name}")
+        
+        # Verify age calculation
+        today = datetime.now()
+        calculated_age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        if calculated_age != request.current_age:
+            logger.warning(f"Age mismatch! Frontend sent: {request.current_age}, Backend calculated: {calculated_age}")
+            # Use backend calculated age for accuracy
+            current_age = calculated_age
+        else:
+            current_age = request.current_age
+        
+        logger.info(f"Using current age: {current_age}")
+        
+        # Generate lifetime predictions
+        result = lifetime_predictor.generate_lifetime_predictions(
+            birth_date=birth_date,
+            current_age=current_age,
+            full_name=request.full_name,
+            chart_data=None  # Optional: can integrate with chart data
+        )
+        
+        result["user_id"] = current_user.id
+        return result
+        
+    except Exception as e:
+        logger.error(f"Lifetime prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lifetime prediction failed: {str(e)}"
+        )
+
+
+@router.get("/lifetime/test")
+async def test_lifetime_predictions(
+    birth_date: str = "1990-01-01",
+    current_age: int = 35,
+    full_name: str = "Test User"
+):
+    """
+    Test endpoint for lifetime predictions (no authentication required)
+    
+    Example:
+    GET /api/v1/events/lifetime/test?birth_date=1990-01-01&current_age=35&full_name=Test User
+    """
+    try:
+        birth_dt = datetime.strptime(birth_date, "%Y-%m-%d")
+        
+        result = lifetime_predictor.generate_lifetime_predictions(
+            birth_date=birth_dt,
+            current_age=current_age,
+            full_name=full_name,
+            chart_data=None
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Test lifetime prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Test prediction failed: {str(e)}"
+        )
+

@@ -1,17 +1,58 @@
 'use client';
 
-import { useState } from 'react';
-import { Calculator, Hash, Star, Users, Sparkles, Loader2, Heart, Briefcase, TrendingUp, Target, Zap, Mountain, Award, Calendar, BookOpen, Compass, Crown, AlertCircle, Lightbulb } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calculator, Hash, Star, Users, Sparkles, Loader2, Heart, Briefcase, TrendingUp, Target, Zap, Mountain, Award, Calendar, BookOpen, Compass, Crown, AlertCircle, Lightbulb, User } from 'lucide-react';
 import { API_URL } from '@/app/config';
+import { useTranslations } from '@/app/hooks/useTranslations';
 
 export default function NumerologyPage() {
+  const { numerology: t } = useTranslations();
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     birthDate: '',
   });
   const [activeTab, setActiveTab] = useState<'overview' | 'cycles' | 'challenges' | 'compatibility'>('overview');
+
+  // Fetch user profiles on mount
+  useEffect(() => {
+    fetchUserProfiles();
+  }, []);
+
+  // Auto-fill form when profile is selected
+  useEffect(() => {
+    if (userProfile) {
+      const dobDate = new Date(userProfile.dob_ts_utc);
+      const birthDateStr = `${dobDate.getUTCFullYear()}-${String(dobDate.getUTCMonth() + 1).padStart(2, '0')}-${String(dobDate.getUTCDate()).padStart(2, '0')}`;
+      
+      setFormData({
+        name: userProfile.name,
+        birthDate: birthDateStr
+      });
+    }
+  }, [userProfile]);
+
+  const fetchUserProfiles = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/v1/users/profiles`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const profiles = await response.json();
+        if (profiles.length > 0) {
+          setAllProfiles(profiles);
+          setUserProfile(profiles[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch profiles:', error);
+    }
+  };
 
   // Calculate Pinnacles and Challenges
   const calculatePinnaclesAndChallenges = (birthDate: string) => {
@@ -22,7 +63,7 @@ export default function NumerologyPage() {
 
     const reduceNumber = (num: number): number => {
       while (num > 9 && num !== 11 && num !== 22 && num !== 33) {
-        num = num.toString().split('').reduce((a, b) => parseInt(a) + parseInt(b), 0);
+        num = num.toString().split('').reduce((a, b) => parseInt(a.toString()) + parseInt(b), 0);
       }
       return num;
     };
@@ -408,9 +449,9 @@ export default function NumerologyPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent flex items-center justify-center gap-4">
             <Calculator className="w-10 h-10 text-purple-400" strokeWidth={2} />
-            Advanced Numerology Analysis
+            {t.title || 'Advanced Numerology Analysis'}
           </h1>
-          <p className="text-slate-400 mt-4 text-lg">Complete numerological profile with life cycles, pinnacles, and challenges</p>
+          <p className="text-slate-400 mt-4 text-lg">{t.subtitle || 'Complete numerological profile with life cycles, pinnacles, and challenges'}</p>
         </div>
 
         {/* Tab Navigation */}
@@ -447,9 +488,33 @@ export default function NumerologyPage() {
         <div className="max-w-2xl mx-auto bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-2xl p-8">
           <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
             <Hash className="w-6 h-6 text-purple-400" />
-            Calculate Your Numbers
+            {t.calculateHeading || 'Calculate Your Numbers'}
           </h2>
           <form onSubmit={handleCalculate} className="space-y-6">
+            {/* Profile Selector */}
+            {allProfiles.length > 1 && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Select Profile
+                </label>
+                <select
+                  value={userProfile?.id || ''}
+                  onChange={(e) => {
+                    const selected = allProfiles.find(p => p.id === e.target.value);
+                    if (selected) setUserProfile(selected);
+                  }}
+                  className="w-full px-4 py-3 bg-slate-900/50 border-2 border-slate-600/50 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 outline-none transition-all text-white"
+                >
+                  {allProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name} - {new Date(profile.dob_ts_utc).toLocaleDateString()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-2">
                 Full Name

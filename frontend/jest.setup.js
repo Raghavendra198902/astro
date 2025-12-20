@@ -51,3 +51,27 @@ global.console = {
   error: jest.fn(),
   warn: jest.fn(),
 }
+
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(), // deprecated
+    removeListener: jest.fn(), // deprecated
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
+// Mock performance.memory for memory tests
+if (typeof performance !== 'undefined' && !(performance).memory) {
+  (performance).memory = {
+    usedJSHeapSize: 1000000,
+    totalJSHeapSize: 2000000,
+    jsHeapSizeLimit: 2000000000,
+  };
+}

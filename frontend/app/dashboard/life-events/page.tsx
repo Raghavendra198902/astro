@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Heart, Briefcase, Home, Baby, GraduationCap, Plane, DollarSign, Star, TrendingUp, Clock, MapPin, Sparkles, Info, AlertTriangle, CheckCircle, Loader2, Activity } from 'lucide-react';
 import { API_URL } from '@/app/config';
+import { useTranslations } from '@/app/hooks/useTranslations';
 
 interface LifeEvent {
   id: string;
@@ -26,6 +27,7 @@ interface LifeEvent {
 }
 
 export default function LifeEventsPage() {
+  const { lifeEvents: t } = useTranslations();
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState<LifeEvent[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -148,6 +150,16 @@ export default function LifeEventsPage() {
 
     console.log('Generating events...');
     try {
+      // Calculate timeframe range
+      const now = new Date();
+      const monthsAhead = {
+        '3months': 3,
+        '6months': 6,
+        '1year': 12,
+        '2years': 24,
+        '5years': 60
+      }[timeframe] || 12;
+      
       // Generate comprehensive life events based on chart analysis
       const mockEvents: LifeEvent[] = [
         {
@@ -494,20 +506,193 @@ export default function LifeEventsPage() {
         }
       ];
 
-      // Filter by timeframe
-      const now = new Date();
-      const monthsAhead = {
-        '3months': 3,
-        '6months': 6,
-        '1year': 12,
-        '2years': 24,
-        '5years': 60
-      }[timeframe] || 12;
+      // Generate additional events based on timeframe
+      const additionalEvents: LifeEvent[] = [];
       
+      if (monthsAhead >= 24) { // 2 years or more
+        additionalEvents.push({
+          id: '9',
+          category: 'finance',
+          event: 'Major Investment Opportunity',
+          timeframe: 'January - March 2028',
+          probability: 82,
+          timing: {
+            period: 'Q1 2028',
+            optimal_dates: ['January 15, 2028', 'February 20, 2028', 'March 12, 2028'],
+            planetary_support: 'Jupiter in 2nd house, Venus-Mercury conjunction'
+          },
+          astrological_indicators: {
+            transits: ['Jupiter blessing finances', 'Venus enhancing wealth', 'Saturn providing stability'],
+            dashas: ['Venus Mahadasha - Financial growth period'],
+            yogas: ['Dhana Yoga active - Wealth accumulation', 'Lakshmi Yoga forming - Prosperity']
+          },
+          recommendations: [
+            'Research investment options thoroughly',
+            'Diversify portfolio during this period',
+            'Consult financial advisor for long-term planning',
+            'Consider real estate or stocks',
+            'Start systematic investment plans',
+            'Review and update financial goals'
+          ],
+          precautions: ['Avoid get-rich-quick schemes', 'Don\'t invest borrowed money', 'Read all documents carefully'],
+          description: 'A highly favorable period for financial investments and wealth building. Jupiter\'s blessings on your financial sector indicate opportunities for significant returns. Real estate, stocks, or business investments made during this time have potential for long-term growth.'
+        });
+
+        additionalEvents.push({
+          id: '10',
+          category: 'relationships',
+          event: 'Deep Relationship Transformation',
+          timeframe: 'June - September 2028',
+          probability: 75,
+          timing: {
+            period: 'Mid 2028',
+            optimal_dates: ['June 21, 2028', 'July 18, 2028', 'August 15, 2028'],
+            planetary_support: 'Venus-Mars harmony, Moon nodes shifting'
+          },
+          astrological_indicators: {
+            transits: ['Rahu-Ketu axis shift affecting relationships', 'Venus enhancing love sector', 'Jupiter providing wisdom'],
+            dashas: ['Venus Antardasha - Relationship focus'],
+            yogas: ['Kama Yoga active - Fulfillment in relationships']
+          },
+          recommendations: [
+            'Work on communication and understanding',
+            'Plan romantic getaways or quality time',
+            'Address any pending relationship issues',
+            'Consider couples counseling if needed',
+            'Strengthen emotional bonds',
+            'Express love and appreciation openly'
+          ],
+          precautions: ['Avoid assumptions', 'Don\'t let ego create conflicts', 'Be patient with partner'],
+          description: 'This period brings transformation in existing relationships or attracts significant new connections. Deep emotional bonds strengthen. For singles, meaningful relationships may begin. For couples, this is a time to deepen commitment and understanding.'
+        });
+      }
+
+      if (monthsAhead >= 36) { // 3 years or more
+        additionalEvents.push({
+          id: '11',
+          category: 'education',
+          event: 'Advanced Learning or Certification Success',
+          timeframe: 'April - July 2029',
+          probability: 79,
+          timing: {
+            period: 'Q2 2029',
+            optimal_dates: ['April 10, 2029', 'May 22, 2029', 'June 15, 2029'],
+            planetary_support: 'Mercury-Jupiter conjunction in education sector'
+          },
+          astrological_indicators: {
+            transits: ['Jupiter expanding knowledge', 'Mercury sharpening intellect', 'Saturn providing discipline'],
+            dashas: ['Jupiter-Mercury period - Academic excellence'],
+            yogas: ['Budha-Aditya Yoga - Intelligence and wisdom', 'Saraswati Yoga - Knowledge acquisition']
+          },
+          recommendations: [
+            'Enroll in advanced courses or certifications',
+            'Pursue higher education opportunities',
+            'Attend workshops and seminars',
+            'Network with experts in your field',
+            'Focus on skill development',
+            'Consider teaching or mentoring roles'
+          ],
+          precautions: ['Don\'t overcommit to too many courses', 'Balance study with rest', 'Choose quality over quantity'],
+          description: 'Excellent period for educational pursuits and intellectual growth. Success in exams, certifications, or degree programs is highly indicated. Your ability to learn and retain information peaks. Consider pursuing that advanced degree or professional certification you\'ve been contemplating.'
+        });
+
+        additionalEvents.push({
+          id: '12',
+          category: 'health',
+          event: 'Major Health Improvement Phase',
+          timeframe: 'October 2029 - January 2030',
+          probability: 71,
+          timing: {
+            period: 'Q4 2029 - Q1 2030',
+            optimal_dates: ['October 8, 2029', 'November 12, 2029', 'December 20, 2029'],
+            planetary_support: 'Sun strengthening vitality, Mars enhancing energy'
+          },
+          astrological_indicators: {
+            transits: ['Sun in 1st house - Vitality boost', 'Mars providing energy', 'Jupiter protecting health'],
+            dashas: ['Sun Antardasha - Health and vitality focus'],
+            yogas: ['Parvata Yoga - Physical strength']
+          },
+          recommendations: [
+            'Start new fitness routine or health regimen',
+            'Focus on preventive health checkups',
+            'Adopt healthier eating habits',
+            'Practice yoga and meditation regularly',
+            'Get adequate sleep and rest',
+            'Consider holistic healing approaches',
+            'Spend time in nature and sunlight'
+          ],
+          precautions: ['Don\'t overexert in new exercise routines', 'Warm up properly before workouts', 'Listen to your body'],
+          description: 'A transformative period for health and wellness. Your energy levels increase significantly, making it ideal to establish lasting healthy habits. Any health issues can show marked improvement with proper care. Focus on building sustainable wellness practices.'
+        });
+      }
+
+      if (monthsAhead >= 48) { // 4 years or more
+        additionalEvents.push({
+          id: '13',
+          category: 'career',
+          event: 'Leadership Position or Major Promotion',
+          timeframe: 'March - June 2030',
+          probability: 84,
+          timing: {
+            period: 'Q2 2030',
+            optimal_dates: ['March 18, 2030', 'April 22, 2030', 'May 27, 2030'],
+            planetary_support: 'Saturn in 10th house, Jupiter aspecting career sector'
+          },
+          astrological_indicators: {
+            transits: ['Saturn providing authority', 'Jupiter blessing success', 'Sun enhancing reputation'],
+            dashas: ['Saturn Mahadasha - Leadership and responsibility'],
+            yogas: ['Sasa Yoga - Position and authority', 'Shankha Yoga - Fame and recognition']
+          },
+          recommendations: [
+            'Prepare for leadership responsibilities',
+            'Develop management and strategic skills',
+            'Build strong professional network',
+            'Demonstrate reliability and competence',
+            'Take on high-visibility projects',
+            'Mentor junior colleagues',
+            'Maintain professional integrity'
+          ],
+          precautions: ['Don\'t let success inflate ego', 'Balance ambition with ethics', 'Avoid office politics'],
+          description: 'A pinnacle period in your career trajectory. Senior leadership positions, major promotions, or significant recognition await. Your years of hard work culminate in tangible rewards. Authority, responsibility, and respect come your way. This is a career-defining moment.'
+        });
+
+        additionalEvents.push({
+          id: '14',
+          category: 'travel',
+          event: 'Life-Changing International Journey',
+          timeframe: 'September - November 2030',
+          probability: 68,
+          timing: {
+            period: 'Q3 2030',
+            optimal_dates: ['September 5, 2030', 'October 10, 2030', 'November 3, 2030'],
+            planetary_support: 'Rahu in 9th house, Jupiter expanding horizons'
+          },
+          astrological_indicators: {
+            transits: ['Rahu opening foreign opportunities', 'Jupiter blessing journeys', 'Mercury easing travel'],
+            dashas: ['Rahu Antardasha - Foreign connections'],
+            yogas: ['Pravrajya Yoga - Long distance travel', 'Videsh Yoga - Foreign settlement possibilities']
+          },
+          recommendations: [
+            'Plan international travel during optimal dates',
+            'Consider work opportunities abroad',
+            'Explore different cultures and perspectives',
+            'Network globally',
+            'Document experiences for future reference',
+            'Be open to unexpected opportunities'
+          ],
+          precautions: ['Ensure proper documentation and visas', 'Stay safe in foreign locations', 'Keep emergency contacts'],
+          description: 'Significant foreign travel or international opportunities arise. This journey could be life-changing, whether for work, education, or personal growth. You may connect with foreign cultures in meaningful ways. Some may find opportunities for overseas settlement or long-term stays abroad.'
+        });
+      }
+
+      // Combine all events
+      const allEvents = [...mockEvents, ...additionalEvents];
+
+      // Filter by timeframe date range
       const maxDate = new Date();
       maxDate.setMonth(now.getMonth() + monthsAhead);
 
-      const filteredEvents = mockEvents.filter(event => {
+      const filteredEvents = allEvents.filter(event => {
         try {
           // Parse the date from "March - May 2026" format
           const dateStr = event.timeframe.split(' - ')[0]; // "March"
@@ -567,8 +752,8 @@ export default function LifeEventsPage() {
               <Calendar className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold text-white">Life Events Prediction</h1>
-              <p className="text-slate-400">AI-powered predictions for major life milestones</p>
+              <h1 className="text-4xl font-bold text-white">{t.title || 'Life Events Prediction'}</h1>
+              <p className="text-slate-400">{t.subtitle || 'AI-powered predictions for major life milestones'}</p>
             </div>
           </div>
 
@@ -578,7 +763,7 @@ export default function LifeEventsPage() {
             <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl p-4 border border-slate-700/50">
               <label className="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
                 <Clock className="w-4 h-4" />
-                Prediction Timeframe
+                {t.timeframeLabel || 'Prediction Timeframe'}
               </label>
               <select
                 value={timeframe}
@@ -606,7 +791,7 @@ export default function LifeEventsPage() {
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5" />
-                    Generate Life Events
+                    {t.generateButton || 'Generate Life Events'}
                   </>
                 )}
               </button>

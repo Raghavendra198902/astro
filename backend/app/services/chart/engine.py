@@ -95,30 +95,82 @@ class ChartEngine:
                 if "rahu" in positions:
                     rahu_long = positions["rahu"]["longitude"]
                     ketu_long = (rahu_long + 180) % 360
+                    ketu_speed = -positions["rahu"]["speed"]
                     positions["ketu"] = {
                         "longitude": ketu_long,
                         "latitude": 0.0,
                         "distance": 0.0,
-                        "speed": -positions["rahu"]["speed"],
+                        "speed": ketu_speed,
                         "retrograde": False,
+                        "motion_state": "Normal",
+                        "motion_sanskrit": "Sama",
                     }
                 continue
             
             try:
                 result, ret_flag = swe.calc_ut(jd, planet_id, flags)
                 
+                speed = result[3]
+                retrograde = speed < 0
+                motion_state = self._get_motion_state(planet_name, speed, retrograde)
+                
                 positions[planet_name] = {
                     "longitude": result[0],
                     "latitude": result[1],
                     "distance": result[2],
-                    "speed": result[3],
-                    "retrograde": result[3] < 0,
+                    "speed": speed,
+                    "retrograde": retrograde,
+                    "motion_state": motion_state["state"],
+                    "motion_sanskrit": motion_state["sanskrit"],
                 }
             except Exception as e:
                 logger.error(f"Error calculating {planet_name}: {e}")
                 positions[planet_name] = None
         
         return positions
+    
+    def _get_motion_state(self, planet_name: str, speed: float, retrograde: bool) -> Dict[str, str]:
+        """
+        Determine planetary motion state in Vedic astrology.
+        Returns motion state in both English and Sanskrit terms.
+        """
+        # Average daily motion for planets (degrees per day)
+        avg_speeds = {
+            "sun": 0.9856,
+            "moon": 13.176,
+            "mars": 0.524,
+            "mercury": 1.383,
+            "jupiter": 0.083,
+            "venus": 1.602,
+            "saturn": 0.033,
+        }
+        
+        if planet_name not in avg_speeds:
+            return {"state": "Normal", "sanskrit": "Sama"}
+        
+        avg_speed = avg_speeds[planet_name]
+        abs_speed = abs(speed)
+        
+        if retrograde:
+            # Retrograde motion states
+            if abs_speed > avg_speed * 0.8:
+                return {"state": "Fast Retrograde", "sanskrit": "Vakra Druti"}
+            else:
+                return {"state": "Slow Retrograde", "sanskrit": "Vakra Manda"}
+        else:
+            # Direct motion states
+            speed_ratio = abs_speed / avg_speed
+            
+            if speed_ratio > 1.5:
+                return {"state": "Very Fast", "sanskrit": "Ati Druti"}
+            elif speed_ratio > 1.2:
+                return {"state": "Fast", "sanskrit": "Druti"}
+            elif speed_ratio < 0.5:
+                return {"state": "Very Slow", "sanskrit": "Ati Manda"}
+            elif speed_ratio < 0.8:
+                return {"state": "Slow", "sanskrit": "Manda"}
+            else:
+                return {"state": "Normal", "sanskrit": "Sama"}
     
     def calculate_houses(
         self,
