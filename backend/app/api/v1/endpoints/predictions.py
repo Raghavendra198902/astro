@@ -19,6 +19,10 @@ from app.services.vision.palm_reading import palm_reading_engine
 from app.services.vision.face_reading import face_reading_engine
 from app.services.ai.ml_engine import ml_engine
 from app.services.ai.lifetime_predictor import lifetime_predictor
+from app.services.predictions.detailed_prediction_engine import (
+    detailed_prediction_engine,
+    BirthData
+)
 
 logger = logging.getLogger(__name__)
 
@@ -519,6 +523,112 @@ async def test_lifetime_predictions(
         
     except Exception as e:
         logger.error(f"Test lifetime prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Test prediction failed: {str(e)}"
+        )
+
+
+@router.post("/detailed")
+async def get_detailed_predictions(
+    request: LifeEventsPredictionRequest,
+    language: Optional[str] = "en",
+    current_user: User = Depends(get_current_user)
+):
+    """
+    🔯 Ultra-Detailed Kundali Prediction (Master Document)
+    
+    Generates comprehensive life analysis including:
+    - Birth data & core chart analysis
+    - Personality & life theme
+    - Career, wealth & authority predictions
+    - Dasha system (timing engine) with Mahadasha/Antardasha
+    - Time-bound predictions (5-7 year window)
+    - Foreign/onsite & promotion yoga analysis
+    - Relationship & marriage predictions (ultra-detailed)
+    - Health & longevity analysis
+    - Planning tools (yearly/quarterly tables, probability matrix)
+    - Major yogas and their activation periods
+    - Strategic recommendations with do/don't lists
+    
+    This is the most comprehensive prediction format available.
+    Suitable for strategic life planning and decision support.
+    
+    Language support: en (English), hi (Hindi), mr (Marathi)
+    """
+    try:
+        # Build birth data
+        birth_data = BirthData(
+            full_name=request.full_name,
+            birth_date=request.birth_date,
+            birth_time=request.birth_time,
+            birth_place=request.birth_place,
+            latitude=request.latitude,
+            longitude=request.longitude
+        )
+        
+        # Generate detailed prediction
+        result = detailed_prediction_engine.generate_detailed_prediction(
+            birth_data=birth_data,
+            current_age=request.current_age,
+            language=language
+        )
+        
+        # Add user context
+        result["user_id"] = current_user.id
+        result["user_email"] = current_user.email
+        
+        logger.info(f"Detailed prediction generated for user {current_user.id}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Detailed prediction failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Detailed prediction failed: {str(e)}"
+        )
+
+
+@router.get("/detailed/test")
+async def test_detailed_predictions(
+    birth_date: str = "1978-07-09",
+    birth_time: str = "13:45:00",
+    birth_place: str = "Aurangabad",
+    latitude: float = 19.8762,
+    longitude: float = 75.3433,
+    current_age: int = 47,
+    full_name: str = "Test User",
+    language: str = "en"
+):
+    """
+    Test endpoint for detailed predictions (no authentication required)
+    
+    Example:
+    GET /api/v1/predictions/events/detailed/test?birth_date=1978-07-09&current_age=47
+    """
+    try:
+        # Build birth data
+        birth_data = BirthData(
+            full_name=full_name,
+            birth_date=birth_date,
+            birth_time=birth_time,
+            birth_place=birth_place,
+            latitude=latitude,
+            longitude=longitude
+        )
+        
+        # Generate detailed prediction
+        result = detailed_prediction_engine.generate_detailed_prediction(
+            birth_data=birth_data,
+            current_age=current_age,
+            language=language
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Test detailed prediction failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Test prediction failed: {str(e)}"

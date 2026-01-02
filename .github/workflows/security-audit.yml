@@ -1,0 +1,191 @@
+name: Security Audit
+
+on:
+  schedule:
+    # Run security audit every Monday at 2 AM UTC
+    - cron: '0 2 * * 1'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  dependency-audit:
+    name: Dependency Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Backend - Python Dependency Audit
+        run: |
+          cd backend
+          pip install safety
+          safety check --json > backend-safety-report.json || true
+          safety check
+      
+      - name: Frontend - NPM Audit
+        run: |
+          cd frontend
+          npm audit --json > frontend-audit-report.json || true
+          npm audit
+      
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-reports
+          path: |
+            backend/backend-safety-report.json
+            frontend/frontend-audit-report.json
+  
+  code-security-scan:
+    name: Code Security Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Bandit (Python Security)
+        run: |
+          cd backend
+          pip install bandit
+          bandit -r app/ -f json -o bandit-report.json || true
+          bandit -r app/ -ll
+      
+      - name: Run ESLint Security Plugin
+        run: |
+          cd frontend
+          npm ci
+          npx eslint . --ext .js,.jsx,.ts,.tsx --format json --output-file eslint-security.json || true
+      
+      - name: Upload security scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-results
+          path: |
+            backend/bandit-report.json
+            frontend/eslint-security.json
+  
+  secrets-scanning:
+    name: Secrets Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: TruffleHog Secrets Scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+  
+  sast-analysis:
+    name: SAST Analysis (Semgrep)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/python
+            p/javascript
+            p/typescript
+  
+  container-scanning:
+    name: Container Image Scanning
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Build Backend Image
+        run: |
+          cd backend
+          docker build -t astor-backend:test .
+      
+      - name: Scan Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'astor-backend:test'
+          format: 'sarif'
+          output: 'trivy-backend-results.sarif'
+      
+      - name: Build Frontend Image
+        run: |
+          cd frontend
+          docker build -f Dockerfile.dev -t astor-frontend:test .
+      
+      - name: Scan Frontend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'astor-frontend:test'
+          format: 'sarif'
+          output: 'trivy-frontend-results.sarif'
+      
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: |
+            trivy-backend-results.sarif
+            trivy-frontend-results.sarif
+  
+  compliance-check:
+    name: Compliance & License Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check Python licenses
+        run: |
+          cd backend
+          pip install pip-licenses
+          pip-licenses --format=json --output-file=backend-licenses.json
+          pip-licenses --fail-on="GPL;AGPL"
+      
+      - name: Check NPM licenses
+        run: |
+          cd frontend
+          npm ci
+          npx license-checker --json --out frontend-licenses.json
+      
+      - name: Upload license reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-reports
+          path: |
+            backend/backend-licenses.json
+            frontend/frontend-licenses.json
+  
+  report-summary:
+    name: Security Report Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-audit, code-security-scan, sast-analysis, compliance-check]
+    if: always()
+    
+    steps:
+      - name: Create summary
+        run: |
+          echo "# 🔒 Security Audit Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Audit Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Dependency Audit: ${{ needs.dependency-audit.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Code Security Scan: ${{ needs.code-security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- SAST Analysis: ${{ needs.sast-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Compliance Check: ${{ needs.compliance-check.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Completed: $(date)" >> $GITHUB_STEP_SUMMARY

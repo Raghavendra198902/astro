@@ -1,0 +1,83 @@
+name: Database Backup
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  BACKUP_RETENTION_DAYS: 7
+  S3_BUCKET: astor-ai-backups
+
+jobs:
+  backup-database:
+    name: Backup PostgreSQL
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-15
+      
+      - name: Create backup directory
+        run: mkdir -p backups
+      
+      - name: Backup database
+        env:
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          pg_dump \
+            -h ${{ secrets.DB_HOST }} \
+            -p ${{ secrets.DB_PORT }} \
+            -U ${{ secrets.DB_USER }} \
+            -d ${{ secrets.DB_NAME }} \
+            --format=custom \
+            --compress=9 \
+            --file=backups/backup_$(date +%Y%m%d_%H%M%S).dump
+      
+      - name: Upload to S3
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Sync to S3
+        run: |
+          aws s3 cp backups/ s3://${{ env.S3_BUCKET }}/postgresql/daily/ \
+            --recursive \
+            --storage-class STANDARD_IA
+      
+      - name: Cleanup old backups
+        run: |
+          aws s3 ls s3://${{ env.S3_BUCKET }}/postgresql/daily/ | \
+          while read -r line; do
+            fileName=$(echo $line | awk '{print $4}')
+            fileDate=$(echo $fileName | grep -oP '\d{8}' | head -1)
+            if [ ! -z "$fileDate" ]; then
+              daysOld=$(( ($(date +%s) - $(date -d "$fileDate" +%s)) / 86400 ))
+              if [ $daysOld -gt ${{ env.BACKUP_RETENTION_DAYS }} ]; then
+                aws s3 rm s3://${{ env.S3_BUCKET }}/postgresql/daily/$fileName
+                echo "Deleted old backup: $fileName"
+              fi
+            fi
+          done
+      
+      - name: Verify backup
+        env:
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          LATEST_BACKUP=$(ls -t backups/*.dump | head -1)
+          pg_restore --list $LATEST_BACKUP > /dev/null
+          echo "✅ Backup verified successfully"
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Backup failed! Please check logs."
+          # Add notification logic (email, Slack, etc.)
