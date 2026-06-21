@@ -2,8 +2,8 @@
 Astor AI Version Information
 """
 
-__version__ = "5.0.0"
-__version_info__ = (5, 0, 0)
+__version__ = "1.0.0"
+__version_info__ = (1, 0, 0)
 
 # Release metadata
 RELEASE_DATE = "2025-12-18"
